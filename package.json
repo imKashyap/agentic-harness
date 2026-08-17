@@ -8,10 +8,12 @@
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js"
   },
-  "dependencies": {},
   "devDependencies": {
-    "@types/node": "^24.0.0",
+    "@types/node": "^24.13.3",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2"
   }
 }

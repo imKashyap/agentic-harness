@@ -11,6 +11,12 @@ export interface Message {
 
 export interface LLMRequest {
   messages: Message[];
+
+  model?: string;
+
+  temperature?: number;
+  maxTokens?: number;
+  topP?: number;
 }
 
 export interface LLMResponse {
