@@ -1,49 +1,24 @@
-import {
-    LLM,
-    Message,
-} from "../../llm/model.js";
+import { AgentRunInput, AgentRunner, AgentRunResult } from "./agent-runner.js";
 
-import { AgentConfig } from "./agent-config.js";
 import { PromptProvider } from "../../prompts/prompt-provider.js";
-
-export interface AgentInput {
-    message: string;
-}
-
-export interface AgentResult {
-    response: string;
-}
+import { ExecutionContext } from "../execution/execution-context.js";
+import { AgentConfig } from "./agent-config.js";
 
 export class Agent {
-    constructor(
-        private readonly config: AgentConfig,
-        private readonly llm: LLM,
-        private readonly promptProvider: PromptProvider,
+  constructor(
+    private readonly config: AgentConfig,
+    private readonly promptProvider: PromptProvider,
+    private readonly runner: AgentRunner,
+  ) {}
 
-    ) { }
+  async run(input: AgentRunInput): Promise<AgentRunResult> {
+    const prompt = await this.promptProvider.getPrompt(this.config.prompt);
 
-    async run(input: AgentInput): Promise<AgentResult> {
-        const prompt = await this.promptProvider.getPrompt(
-            this.config.prompt,
-        );
+    const context: ExecutionContext = {
+      runId: crypto.randomUUID(),
+      agentId: this.config.id,
+    };
 
-        const messages: Message[] = [
-            {
-                role: "system",
-                content: prompt.content,
-            },
-            {
-                role: "user",
-                content: input.message,
-            },
-        ];
-
-        const response = await this.llm.chat({
-            messages,
-        });
-
-        return {
-            response: response.content,
-        };
-    }
+    return this.runner.run(input, context, prompt.content);
+  }
 }

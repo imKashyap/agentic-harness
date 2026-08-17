@@ -1,0 +1,20 @@
+{
+  "id": "default-agent",
+  "name": "Default Agent",
+  "description": "My first agent",
+  "model": {
+    "provider": "openrouter",
+    "model": "gemma-4-31b-it",
+    "generation": {
+      "temperature": 0.7,
+      "maxTokens": 1024
+    }
+  },
+  "prompt": {
+    "id": "default-agent",
+    "version": "v1"
+  },
+  "skills": [],
+  "tools": [],
+  "subAgents": []
+}

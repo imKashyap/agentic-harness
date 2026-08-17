@@ -1,33 +1,40 @@
-export interface AgentConfig {
-    id: string;
-    name: string;
-    description?: string;
+import { z } from "zod";
 
-    model: ModelConfig;
+export const GenerationConfigSchema = z.object({
+  temperature: z.number().min(0).max(2).optional(),
+  maxTokens: z.number().positive().optional(),
+  topP: z.number().min(0).max(1).optional(),
+  frequencyPenalty: z.number().optional(),
+  presencePenalty: z.number().optional(),
+});
 
-    prompt: PromptConfig;
+export const ModelConfigSchema = z.object({
+  provider: z.string().min(1),
+  model: z.string().min(1),
 
-    skills: string[];
-    tools: string[];
-    subAgents: string[];
-}
+  generation: GenerationConfigSchema.optional(),
+});
 
-export interface ModelConfig {
-    provider: string;
-    model: string;
+export const PromptConfigSchema = z.object({
+  id: z.string().min(1),
+  version: z.string().optional(),
+});
 
-    generation?: GenerationConfig;
-}
+export const AgentConfigSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string().optional(),
 
-export interface GenerationConfig {
-    temperature?: number;
-    maxTokens?: number;
-    topP?: number;
-    frequencyPenalty?: number;
-    presencePenalty?: number;
-}
+  model: ModelConfigSchema,
 
-export interface PromptConfig {
-    id: string;
-    version?: string;
-}
+  prompt: PromptConfigSchema,
+
+  skills: z.array(z.string()),
+  tools: z.array(z.string()),
+  subAgents: z.array(z.string()),
+});
+
+export type AgentConfig = z.infer<typeof AgentConfigSchema>;
+export type ModelConfig = z.infer<typeof ModelConfigSchema>;
+export type GenerationConfig = z.infer<typeof GenerationConfigSchema>;
+export type PromptConfig = z.infer<typeof PromptConfigSchema>;

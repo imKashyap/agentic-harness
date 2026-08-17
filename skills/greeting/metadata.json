@@ -1,0 +1,5 @@
+{
+  "id": "skill.greeting",
+  "name": "Greeting",
+  "description": "Handles simple greetings and conversational introductions"
+}
