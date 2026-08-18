@@ -1,0 +1,29 @@
+sequenceDiagram
+    participant AR as AgentRunner
+    participant LF as LLMFactory
+    participant LLM as LLM (interface)
+    participant Adapter as OpenRouterLLM / MockLLM
+    participant API as Provider API
+
+    AR->>LF: create(config.model)
+    alt provider = "mock"
+        LF->>Adapter: new MockLLM()
+    else provider = "openrouter"
+        LF->>Adapter: new OpenRouterLLM(model)
+    end
+    LF-->>AR: LLM instance
+
+    loop agent iteration (max 10)
+        AR->>LLM: chat({ messages, tools, agents, model, temperature, maxTokens, topP })
+        LLM->>Adapter: chat(request)
+        alt OpenRouterLLM
+            Adapter->>Adapter: mapMessage() — internal Message → OpenRouter format
+            Adapter->>Adapter: map tools + agents → function definitions
+            Adapter->>API: POST /api/v1/chat/completions
+            API-->>Adapter: choices[0].message (+ tool_calls)
+            Adapter->>Adapter: parse tool_calls → ToolCall[]
+        else MockLLM
+            Adapter->>Adapter: echo last user message
+        end
+        Adapter-->>AR: LLMResponse { content, toolCalls? }
+    end

@@ -1,0 +1,45 @@
+sequenceDiagram
+    participant User
+    participant Index as index.ts (bootstrap)
+    participant Agent
+    participant FP as FilePromptProvider
+    participant AR as AgentRunner
+    participant CR as CapabilityRegistry
+    participant LLM
+    participant CD as CapabilityDispatcher
+    participant TCE as ToolCallExecutor
+    participant SAE as SubAgentExecutor
+
+    Note over Index: Startup
+    Index->>Index: CapabilityManager.load() → registry
+    Index->>Index: AgentConfigLoader.load(agent.json)
+    Index->>Index: AgentFactory.create(config) → Agent + AgentRunner
+    Index->>Index: AgentRegistry.register(id, agent)
+
+    User->>Agent: run({ message })
+    Agent->>FP: getPrompt(config.prompt)
+    FP-->>Agent: system prompt content
+    Agent->>Agent: create ExecutionContext { runId, agentId }
+    Agent->>AR: run(input, context, systemPrompt)
+
+    loop up to 10 iterations
+        AR->>CR: getByType("tool") / getByType("agent")
+        AR->>LLM: chat({ messages, tools, agents, model params })
+        LLM-->>AR: LLMResponse
+
+        alt no toolCalls
+            AR-->>Agent: { response: content }
+            Agent-->>User: AgentRunResult
+        else has toolCalls
+            AR->>CD: execute({ name, input }, context)
+            alt type = tool
+                CD->>TCE: execute(request, context, capability)
+                TCE-->>CD: CapabilityExecutionResult
+            else type = agent
+                CD->>SAE: execute(request, context, capability)
+                SAE->>Agent: run({ message: task }, context) [recursive]
+                SAE-->>CD: CapabilityExecutionResult
+            end
+            AR->>AR: append assistant + tool messages
+        end
+    end

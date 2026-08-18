@@ -1,0 +1,10 @@
+flowchart LR
+    SL["SkillLoader.loadAll()"] --> DIR["skills/ directory"]
+    DIR --> RD["readdir()"]
+    RD --> MJ["skill/metadata.json"]
+    RD --> MD["skill/SKILL.md"]
+    MJ --> SM["SkillMetadata"]
+    SM --> SK["Skill object"]
+    MD --> SK
+    SK --> CM["CapabilityManager.load()"]
+    CM --> REG["CapabilityRegistry"]

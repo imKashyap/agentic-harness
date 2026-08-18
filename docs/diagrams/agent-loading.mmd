@@ -1,0 +1,17 @@
+flowchart TD
+    ACL["AgentConfigLoader.load()"] --> JSON["agents/{id}/agent.json"]
+    JSON --> AC["AgentConfig"]
+
+    ACL --> FP["FilePromptProvider<br/>('./prompts/agents')"]
+
+    AC --> AF["AgentFactory.create(config)"]
+    AF --> LF["LLMFactory.create(config.model)"]
+    LF --> LLM["LLM adapter"]
+    AF --> AR["AgentRunner"]
+    AF --> AG["Agent"]
+
+    FP --> AG
+
+    AG -->|"run()"| PROMPT["prompts/agents/{id}.md"]
+
+    AG --> REG["AgentRegistry.register(id, agent)"]

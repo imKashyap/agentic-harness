@@ -1,0 +1,30 @@
+flowchart TD
+    subgraph bootstrap["Bootstrap (index.ts)"]
+        CR["CapabilityRegistry"]
+        CM["CapabilityManager"]
+        SL["SkillLoader('./skills')"]
+        ACL["AgentCapabilityLoader('./agents')"]
+        TL["ToolLoader (stub, not wired)"]
+    end
+
+    CM -->|"load()"| SL
+    CM -->|"load()"| ACL
+    CM -.->|"future"| TL
+
+    SL -->|"loadAll()"| SD["skills/ subdirs"]
+    SD --> MJ["metadata.json"]
+    SD --> SM["SKILL.md"]
+    MJ --> SK["Skill[]"]
+    SM --> SK
+
+    ACL -->|"loadAll()"| AD["agents/ subdirs"]
+    AD --> AJ["agent.json"]
+    AJ --> AC["AgentCapability[]<br/>id: agent.{id}"]
+
+    TL -->|"loadAll() → []"| TO["Tool[] (stub)"]
+
+    SK --> REG["CapabilityRegistry.register()"]
+    AC --> REG
+    TO -.-> REG
+
+    CR --- REG

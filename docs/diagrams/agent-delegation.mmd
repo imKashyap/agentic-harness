@@ -1,0 +1,10 @@
+flowchart LR
+    A["Agent.run()"] --> B["AgentRunner.run()"]
+    B --> C["LLM.chat()"]
+    C --> D["LLMResponse<br/>(toolCalls)"]
+    D --> E["CapabilityDispatcher<br/>.execute()"]
+    E --> F["Route by type<br/>(tool/agent)"]
+    F --> G["ToolCallExecutor<br/>OR SubAgentExecutor"]
+    G --> H["CapabilityExecutionResult"]
+    H --> I["LLM iteration<br/>or final response"]
+    I -.->|next iteration| B

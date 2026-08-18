@@ -1,0 +1,20 @@
+sequenceDiagram
+    participant AR as AgentRunner
+    participant CD as CapabilityDispatcher
+    participant TCE as ToolCallExecutor
+    participant CR as CapabilityRegistry
+    participant TE as ToolExecutor
+    participant Tool as tool.execute()
+
+    AR->>CD: execute({ name, input }, context)
+    CD->>CR: get(request.name) → type "tool"
+    CD->>TCE: execute(request, context, capability)
+    TCE->>CR: getTool(request.name)
+    CR-->>TCE: Tool object
+    TCE->>TE: execute(tool, input, context)
+    TE->>Tool: execute(input, context)
+    Tool-->>TE: ToolResult { success, output, error? }
+    TE-->>TCE: ToolResult
+    TCE-->>CD: CapabilityExecutionResult
+    CD-->>AR: CapabilityExecutionResult
+    AR->>AR: append role:"tool" message → next LLM iteration

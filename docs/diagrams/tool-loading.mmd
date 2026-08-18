@@ -1,0 +1,9 @@
+flowchart TD
+    TL["ToolLoader"] --> TOOLS["tools/ (registered)"]
+    TOOLS --> TA["Tool[]"]
+    TL --> TI["Tool interface"]
+    TI --> SCHEMA["{ id, name, execute() }"]
+    TI --> REG["CapabilityRegistry"]
+
+    note1["Note: ToolLoader is currently a stub and not wired in bootstrap"]
+    style note1 fill:#fecaca,stroke:#1f2937
