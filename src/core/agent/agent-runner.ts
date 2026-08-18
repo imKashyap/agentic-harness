@@ -1,4 +1,5 @@
 import { CapabilityRegistry } from "../../capabilities/capability-registry.js";
+import { CapabilityBatchExecutor } from "../../capabilities/execution/capability-batch-executor.js";
 import { CapabilityExecutor } from "../../capabilities/execution/capability-executor.js";
 import { AgentDefinition, LLM, Message, ToolDefinition } from "../../llm/model.js";
 import { ExecutionContext } from "../execution/execution-context.js";
@@ -18,6 +19,7 @@ export class AgentRunner {
     private readonly llm: LLM,
     private readonly capabilityRegistry: CapabilityRegistry,
     private readonly capabilityExecutor: CapabilityExecutor,
+    private readonly capabilityBatchExecutor: CapabilityBatchExecutor,
   ) {}
 
   async run(
@@ -64,19 +66,22 @@ export class AgentRunner {
         toolCalls: response.toolCalls,
       });
 
-      for (const toolCall of response.toolCalls) {
-        const result = await this.capabilityExecutor.execute(
-          {
-            name: toolCall.name,
-            input: toolCall.arguments,
-          },
-          context,
-        );
+      const requests = response.toolCalls.map((toolCall) => ({
+        name: toolCall.name,
+        input: toolCall.arguments,
+      }));
+
+      const results = await this.capabilityBatchExecutor.execute(requests, context);
+
+      for (let i = 0; i < response.toolCalls.length; i++) {
+        const toolCall = response.toolCalls[i];
+
+        const result = results[i]!.result;
 
         messages.push({
           role: "tool",
-          toolCallId: toolCall.id,
-          name: toolCall.name,
+          toolCallId: toolCall!.id,
+          name: toolCall!.name,
           content: JSON.stringify(result.output),
         });
       }

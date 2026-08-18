@@ -4,6 +4,7 @@ import { AgentCapabilityLoader } from "./capabilities/agents/agent-capability-lo
 import { SubAgentExecutor } from "./capabilities/agents/sub-agent-executor.js";
 import { CapabilityManager } from "./capabilities/capability-manager.js";
 import { CapabilityRegistry } from "./capabilities/capability-registry.js";
+import { CapabilityBatchExecutor } from "./capabilities/execution/capability-batch-executor.js";
 import { CapabilityDispatcher } from "./capabilities/execution/capability-dispatcher.js";
 import { SkillLoader } from "./capabilities/skills/skill-loader.js";
 import { ToolCallExecutor } from "./capabilities/tools/tool-call-executor.js";
@@ -56,12 +57,18 @@ const capabilityExecutor = new CapabilityDispatcher(
   subAgentExecutor,
 );
 
+const capabilityBatchExecutor = new CapabilityBatchExecutor(capabilityExecutor);
+
 // ─────────────────────────────────────
 // Agent construction
 // ─────────────────────────────────────
 
-const agentFactory = new AgentFactory(capabilityRegistry, capabilityExecutor, promptProvider);
-
+const agentFactory = new AgentFactory(
+  capabilityRegistry,
+  capabilityExecutor,
+  capabilityBatchExecutor,
+  promptProvider,
+);
 const defaultAgent = agentFactory.create(config);
 const researcherAgent = agentFactory.create(researcherConfig);
 
