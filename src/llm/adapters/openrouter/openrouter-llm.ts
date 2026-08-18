@@ -1,5 +1,4 @@
-import { LLM, LLMRequest, LLMResponse, ToolCall } from "../../model.js";
-import { Message } from "../../model.js";
+import { LLM, LLMRequest, LLMResponse, Message, ToolCall } from "../../model.js";
 
 export class OpenRouterLLM implements LLM {
   constructor(private readonly model: string) {}
@@ -24,15 +23,27 @@ export class OpenRouterLLM implements LLM {
 
         messages: request.messages.map((message) => this.mapMessage(message)),
 
-        tools: request.tools?.map((tool) => ({
-          type: "function",
+        tools: [
+          ...(request.tools ?? []).map((tool) => ({
+            type: "function",
 
-          function: {
-            name: tool.name,
-            description: tool.description,
-            parameters: tool.inputSchema,
-          },
-        })),
+            function: {
+              name: tool.name,
+              description: tool.description,
+              parameters: tool.inputSchema,
+            },
+          })),
+
+          ...(request.agents ?? []).map((agent) => ({
+            type: "function",
+
+            function: {
+              name: agent.name,
+              description: agent.description,
+              parameters: agent.inputSchema,
+            },
+          })),
+        ],
 
         temperature: request.temperature,
         max_tokens: request.maxTokens,

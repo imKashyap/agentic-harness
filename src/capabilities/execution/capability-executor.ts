@@ -1,4 +1,5 @@
 import { ExecutionContext } from "../../core/execution/execution-context.js";
+import { Capability } from "../capability.js";
 
 export interface CapabilityExecutionRequest {
   name: string;
@@ -15,5 +16,6 @@ export interface CapabilityExecutor {
   execute(
     request: CapabilityExecutionRequest,
     context: ExecutionContext,
+    capability?: Capability,
   ): Promise<CapabilityExecutionResult>;
 }

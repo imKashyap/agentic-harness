@@ -1,0 +1,20 @@
+{
+  "id": "researcher",
+  "name": "Researcher",
+  "description": "A specialized agent that analyzes a task and provides a concise research-oriented answer.",
+  "model": {
+    "provider": "openrouter",
+    "model": "openai/gpt-4o",
+    "generation": {
+      "temperature": 0.3,
+      "maxTokens": 1024
+    }
+  },
+  "prompt": {
+    "id": "researcher",
+    "version": "v1"
+  },
+  "skills": [],
+  "tools": [],
+  "subAgents": []
+}

@@ -22,10 +22,19 @@ export interface ToolDefinition {
   inputSchema: Record<string, unknown>;
 }
 
+export interface AgentDefinition {
+  name: string;
+  description: string;
+
+  inputSchema: Record<string, unknown>;
+}
+
 export interface LLMRequest {
   messages: Message[];
 
   tools?: ToolDefinition[];
+
+  agents?: AgentDefinition[];
 
   model?: string;
 

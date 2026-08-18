@@ -10,6 +10,7 @@ export class CapabilityDispatcher implements CapabilityExecutor {
   constructor(
     private readonly registry: CapabilityRegistry,
     private readonly toolExecutor: CapabilityExecutor,
+    private readonly subAgentExecutor: CapabilityExecutor,
   ) {}
 
   async execute(
@@ -20,13 +21,13 @@ export class CapabilityDispatcher implements CapabilityExecutor {
 
     switch (capability.type) {
       case "tool":
-        return this.toolExecutor.execute(request, context);
+        return this.toolExecutor.execute(request, context, capability);
+
+      case "agent":
+        return this.subAgentExecutor.execute(request, context, capability);
 
       case "skill":
         throw new Error(`Skill execution is not supported yet: ${request.name}`);
-
-      case "agent":
-        throw new Error(`Sub-agent execution is not supported yet: ${request.name}`);
 
       default:
         throw new Error(`Unsupported capability type: ${capability.type}`);
