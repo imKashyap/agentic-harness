@@ -72,8 +72,10 @@ agentRegistry.register(researcherConfig.id, researcherAgent);
 // Run
 // ─────────────────────────────────────
 
+const input = process.env.AGENT_INPUT ?? "Hello";
+
 const result = await defaultAgent.run({
-  message: "2 + 5",
+  message: input,
 });
 
 console.log(result.response);

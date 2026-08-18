@@ -4,7 +4,7 @@
   "description": "A specialized agent that analyzes a task and provides a concise research-oriented answer.",
   "model": {
     "provider": "openrouter",
-    "model": "openai/gpt-4o",
+    "model": "gemma-4-31b-it",
     "generation": {
       "temperature": 0.3,
       "maxTokens": 1024

@@ -23,8 +23,6 @@ export class SubAgentExecutor implements CapabilityExecutor {
       throw new Error(`Agent capability is required for sub-agent execution: ${request.name}`);
     }
 
-    const agent = this.agentRegistry.get(capability.agentId);
-
     const input = request.input as DelegationInput;
 
     if (!input || typeof input.task !== "string" || input.task.trim().length === 0) {
@@ -35,6 +33,8 @@ export class SubAgentExecutor implements CapabilityExecutor {
       };
     }
 
+    const agent = this.agentRegistry.get(capability.agentId);
+
     const result = await agent.run(
       {
         message: input.task,
@@ -44,7 +44,10 @@ export class SubAgentExecutor implements CapabilityExecutor {
 
     return {
       success: true,
-      output: result.response,
+      output: {
+        agentId: capability.agentId,
+        response: result.response,
+      },
     };
   }
 }
