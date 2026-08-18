@@ -3,24 +3,39 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
-    "format": "prettier --write .",
     "typecheck": "tsc --noEmit --project tsconfig.json",
-    "lint": "eslint . --ext .ts",
-    "check": "npm run typecheck && npm run lint",
-    "quality": "npm run format && npm run check"
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "fix": "npm run lint -- --fix && npm run format",
+    "verify": "npm run typecheck && npm run lint && prettier --check .",
+    "audit": "npm audit --production",
+    "prepare": "husky install"
   },
   "devDependencies": {
     "@eslint/js": "^9.35.0",
+    "@eslint/json": "^2.0.1",
     "@types/node": "^24.13.3",
     "@typescript-eslint/eslint-plugin": "^8.39.0",
     "@typescript-eslint/parser": "^8.39.0",
     "eslint": "^9.33.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.6",
+    "eslint-plugin-simple-import-sort": "^14.0.0",
+    "globals": "^17.11.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.3.0",
+    "prettier": "^3.9.6",
     "tsx": "^4.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8.67.0"
   },
   "dependencies": {
     "dotenv": "^17.4.2",

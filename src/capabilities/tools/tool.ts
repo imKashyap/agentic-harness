@@ -1,7 +1,7 @@
 import { ExecutionContext } from "../../core/execution/execution-context.js";
 import { Capability } from "../capability.js";
 
-export interface ToolContext extends ExecutionContext {}
+export type ToolContext = ExecutionContext;
 
 export interface ToolResult {
   success: boolean;

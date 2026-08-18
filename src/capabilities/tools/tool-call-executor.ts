@@ -1,17 +1,29 @@
-import { ToolCall } from "../../llm/model.js";
 import { ExecutionContext } from "../../core/execution/execution-context.js";
 import { CapabilityRegistry } from "../capability-registry.js";
+import { CapabilityExecutionResult, CapabilityExecutor } from "../execution/capability-executor.js";
 import { ToolExecutor } from "./tool-executor.js";
 
-export class ToolCallExecutor {
+export class ToolCallExecutor implements CapabilityExecutor {
   constructor(
     private readonly registry: CapabilityRegistry,
     private readonly toolExecutor: ToolExecutor,
   ) {}
 
-  async execute(toolCall: ToolCall, context: ExecutionContext) {
-    const tool = this.registry.getTool(toolCall.name);
+  async execute(
+    request: {
+      name: string;
+      input: unknown;
+    },
+    context: ExecutionContext,
+  ): Promise<CapabilityExecutionResult> {
+    const tool = this.registry.getTool(request.name);
 
-    return this.toolExecutor.execute(tool, toolCall.arguments, context);
+    const result = await this.toolExecutor.execute(tool, request.input, context);
+
+    return {
+      success: result.success,
+      output: result.output,
+      error: result.error,
+    };
   }
 }

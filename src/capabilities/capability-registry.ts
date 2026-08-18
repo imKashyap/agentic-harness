@@ -1,7 +1,7 @@
+import { AgentCapability } from "./agents/agent-capability.js";
 import { Capability } from "./capability.js";
 import { Skill } from "./skills/skill.js";
 import { Tool } from "./tools/tool.js";
-import { AgentCapability } from "./agents/agent-capability.js";
 
 export class CapabilityRegistry {
   private readonly capabilities = new Map<string, Capability>();

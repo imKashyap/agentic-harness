@@ -2,7 +2,6 @@ import { AgentCapability } from "../agents/agent-capability.js";
 import { Capability } from "../capability.js";
 import { Skill } from "../skills/skill.js";
 import { Tool } from "../tools/tool.js";
-
 import { LLMCapabilityContext } from "./llm-capability.js";
 
 export class CapabilityResolver {

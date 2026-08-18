@@ -1,8 +1,7 @@
-import { AgentRunInput, AgentRunner, AgentRunResult } from "./agent-runner.js";
-
 import { PromptProvider } from "../../prompts/prompt-provider.js";
 import { ExecutionContext } from "../execution/execution-context.js";
 import { AgentConfig } from "./agent-config.js";
+import { AgentRunInput, AgentRunner, AgentRunResult } from "./agent-runner.js";
 
 export class Agent {
   constructor(

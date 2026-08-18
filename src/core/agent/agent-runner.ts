@@ -1,9 +1,7 @@
 import { CapabilityRegistry } from "../../capabilities/capability-registry.js";
-import { ToolCallExecutor } from "../../capabilities/tools/tool-call-executor.js";
-import { ExecutionContext } from "../execution/execution-context.js";
-
+import { CapabilityExecutor } from "../../capabilities/execution/capability-executor.js";
 import { LLM, Message, ToolDefinition } from "../../llm/model.js";
-
+import { ExecutionContext } from "../execution/execution-context.js";
 import { AgentConfig } from "./agent-config.js";
 
 export interface AgentRunInput {
@@ -19,7 +17,7 @@ export class AgentRunner {
     private readonly config: AgentConfig,
     private readonly llm: LLM,
     private readonly capabilityRegistry: CapabilityRegistry,
-    private readonly toolCallExecutor: ToolCallExecutor,
+    private readonly capabilityExecutor: CapabilityExecutor,
   ) {}
 
   async run(
@@ -67,7 +65,13 @@ export class AgentRunner {
       });
 
       for (const toolCall of response.toolCalls) {
-        const result = await this.toolCallExecutor.execute(toolCall, context);
+        const result = await this.capabilityExecutor.execute(
+          {
+            name: toolCall.name,
+            input: toolCall.arguments,
+          },
+          context,
+        );
 
         messages.push({
           role: "tool",

@@ -1,33 +1,30 @@
 import js from "@eslint/js";
-import tsPlugin from "@typescript-eslint/eslint-plugin";
-import tsParser from "@typescript-eslint/parser";
+import prettier from "eslint-plugin-prettier/recommended";
+import simpleImportSort from "eslint-plugin-simple-import-sort";
+import globals from "globals";
+import tseslint from "typescript-eslint";
 
-export default [
+export default tseslint.config(
   {
-    ignores: ["dist/**", "node_modules/**"],
+    ignores: ["dist/**", "node_modules/**", ".husky/**", "coverage/**", "*.tsbuildinfo"],
   },
   js.configs.recommended,
+  ...tseslint.configs.recommended,
   {
-    files: ["**/*.ts"],
+    files: ["**/*.ts", "**/*.tsx"],
     languageOptions: {
-      parser: tsParser,
+      parser: tseslint.parser,
       parserOptions: {
-        project: false,
-        ecmaVersion: "latest",
-        sourceType: "module",
+        project: true,
+        tsconfigRootDir: import.meta.dirname,
       },
-      globals: {
-        console: "readonly",
-        process: "readonly",
-        Buffer: "readonly",
-        crypto: "readonly",
-      },
+      globals: globals.node,
     },
     plugins: {
-      "@typescript-eslint": tsPlugin,
+      "@typescript-eslint": tseslint.plugin,
+      "simple-import-sort": simpleImportSort,
     },
     rules: {
-      ...tsPlugin.configs.recommended.rules,
       "@typescript-eslint/no-unused-vars": [
         "error",
         {
@@ -35,8 +32,26 @@ export default [
           varsIgnorePattern: "^_",
         },
       ],
+      "@typescript-eslint/no-explicit-any": "warn",
+      "simple-import-sort/imports": "error",
+      "simple-import-sort/exports": "error",
       "no-console": "off",
-      "no-undef": "off",
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["dist/**"],
+              message: "Imports from dist are not allowed. Import from source files instead.",
+            },
+            {
+              group: ["**/.internal/**"],
+              message: "Cannot import from internal modules.",
+            },
+          ],
+        },
+      ],
     },
   },
-];
+  prettier,
+);
