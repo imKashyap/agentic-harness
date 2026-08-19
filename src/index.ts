@@ -4,85 +4,98 @@ import { AgentCapabilityLoader } from "./capabilities/agents/agent-capability-lo
 import { SubAgentExecutor } from "./capabilities/agents/sub-agent-executor.js";
 import { CapabilityManager } from "./capabilities/capability-manager.js";
 import { CapabilityRegistry } from "./capabilities/capability-registry.js";
-import { CapabilityBatchExecutor } from "./capabilities/execution/capability-batch-executor.js";
 import { CapabilityDispatcher } from "./capabilities/execution/capability-dispatcher.js";
 import { SkillLoader } from "./capabilities/skills/skill-loader.js";
+import { CalculatorTool } from "./capabilities/tools/examples/calculator-tool.js";
 import { ToolCallExecutor } from "./capabilities/tools/tool-call-executor.js";
 import { ToolExecutor } from "./capabilities/tools/tool-executor.js";
+import { ToolLoader } from "./capabilities/tools/tool-loader.js";
 import { AgentConfigLoader } from "./core/agent/agent-config-loader.js";
 import { AgentFactory } from "./core/agent/agent-factory.js";
 import { AgentRegistry } from "./core/agent/agent-registry.js";
+import { ExecutionEngine } from "./core/orchestration/execution-engine.js";
+import { Orchestrator } from "./core/orchestration/orchestrator.js";
+import { Planner } from "./core/orchestration/planner.js";
+import { Scheduler } from "./core/orchestration/scheduler.js";
 import { FilePromptProvider } from "./prompts/file-prompt-provider.js";
+import { createLogger } from "./utils/logger.js";
 
-const configLoader = new AgentConfigLoader();
+const logger = createLogger("Bootstrap");
 
-const config = await configLoader.load("./agents/default-agent/agent.json");
+try {
+  logger.info("Initializing Agentic Harness...");
 
-const researcherConfig = await configLoader.load("./agents/researcher/agent.json");
+  const configLoader = new AgentConfigLoader();
+  const config = await configLoader.load("./agents/default-agent/agent.json");
+  const researcherConfig = await configLoader.load("./agents/researcher/agent.json");
 
-const promptProvider = new FilePromptProvider("./prompts/agents");
+  const promptProvider = new FilePromptProvider("./prompts/agents");
 
-// ─────────────────────────────────────
-// Registries
-// ─────────────────────────────────────
+  // ─────────────────────────────────────
+  // Registries
+  // ─────────────────────────────────────
 
-const capabilityRegistry = new CapabilityRegistry();
+  const capabilityRegistry = new CapabilityRegistry();
+  const agentRegistry = new AgentRegistry();
 
-const agentRegistry = new AgentRegistry();
+  // ─────────────────────────────────────
+  // Capability discovery
+  // ─────────────────────────────────────
 
-// ─────────────────────────────────────
-// Capability discovery
-// ─────────────────────────────────────
+  const capabilityManager = new CapabilityManager(capabilityRegistry, [
+    new SkillLoader("./skills"),
+    new AgentCapabilityLoader("./agents"),
+    new ToolLoader([new CalculatorTool()]),
+  ]);
 
-const capabilityManager = new CapabilityManager(capabilityRegistry, [
-  new SkillLoader("./skills"),
-  new AgentCapabilityLoader("./agents"),
-]);
+  await capabilityManager.load();
 
-await capabilityManager.load();
+  // ─────────────────────────────────────
+  // Capability execution
+  // ─────────────────────────────────────
 
-// ─────────────────────────────────────
-// Capability execution
-// ─────────────────────────────────────
+  const toolExecutor = new ToolExecutor();
+  const toolCallExecutor = new ToolCallExecutor(capabilityRegistry, toolExecutor);
+  const subAgentExecutor = new SubAgentExecutor(agentRegistry);
 
-const toolExecutor = new ToolExecutor();
+  const capabilityExecutor = new CapabilityDispatcher(
+    capabilityRegistry,
+    toolCallExecutor,
+    subAgentExecutor,
+  );
 
-const toolCallExecutor = new ToolCallExecutor(capabilityRegistry, toolExecutor);
+  const scheduler = new Scheduler();
+  const planner = new Planner();
+  const executionEngine = new ExecutionEngine(capabilityExecutor, scheduler);
+  const orchestrator = new Orchestrator(planner, executionEngine);
 
-const subAgentExecutor = new SubAgentExecutor(agentRegistry);
+  // ─────────────────────────────────────
+  // Agent construction
+  // ─────────────────────────────────────
 
-const capabilityExecutor = new CapabilityDispatcher(
-  capabilityRegistry,
-  toolCallExecutor,
-  subAgentExecutor,
-);
+  const agentFactory = new AgentFactory(capabilityRegistry, orchestrator, promptProvider);
+  const defaultAgent = agentFactory.create(config);
+  const researcherAgent = agentFactory.create(researcherConfig);
 
-const capabilityBatchExecutor = new CapabilityBatchExecutor(capabilityExecutor);
+  agentRegistry.register(config.id, defaultAgent);
+  agentRegistry.register(researcherConfig.id, researcherAgent);
 
-// ─────────────────────────────────────
-// Agent construction
-// ─────────────────────────────────────
+  // ─────────────────────────────────────
+  // Run
+  // ─────────────────────────────────────
 
-const agentFactory = new AgentFactory(
-  capabilityRegistry,
-  capabilityExecutor,
-  capabilityBatchExecutor,
-  promptProvider,
-);
-const defaultAgent = agentFactory.create(config);
-const researcherAgent = agentFactory.create(researcherConfig);
+  const input = process.env.AGENT_INPUT ?? "Hello";
+  logger.info(`Running default agent with input: "${input}"`);
 
-agentRegistry.register(config.id, defaultAgent);
-agentRegistry.register(researcherConfig.id, researcherAgent);
+  const result = await defaultAgent.run({
+    message: input,
+  });
 
-// ─────────────────────────────────────
-// Run
-// ─────────────────────────────────────
-
-const input = process.env.AGENT_INPUT ?? "Hello";
-
-const result = await defaultAgent.run({
-  message: input,
-});
-
-console.log(result.response);
+  logger.info("Agent run completed successfully");
+  console.log(result.response);
+} catch (error) {
+  logger.error(
+    `Application fatal error: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`,
+  );
+  process.exit(1);
+}

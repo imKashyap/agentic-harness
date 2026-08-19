@@ -1,6 +1,9 @@
+import { createLogger } from "../utils/logger.js";
 import { Capability } from "./capability.js";
 import { CapabilityLoader } from "./capability-loader.js";
 import { CapabilityRegistry } from "./capability-registry.js";
+
+const logger = createLogger("CapabilityManager");
 
 export class CapabilityManager {
   constructor(
@@ -9,13 +12,33 @@ export class CapabilityManager {
   ) {}
 
   async load(): Promise<void> {
-    for (const loader of this.loaders) {
-      const capabilities = await loader.loadAll();
+    logger.info(`Starting capability discovery with ${this.loaders.length} loader(s)`);
 
-      for (const capability of capabilities) {
-        this.registry.register(capability);
+    let totalLoaded = 0;
+    for (const loader of this.loaders) {
+      const loaderName = loader.constructor.name;
+      logger.debug(`Running loader: ${loaderName}`);
+
+      try {
+        const capabilities = await loader.loadAll();
+        logger.info(`Loader '${loaderName}' discovered ${capabilities.length} capability(ies)`);
+
+        for (const capability of capabilities) {
+          if (!this.registry.has(capability.id)) {
+            this.registry.register(capability);
+            totalLoaded++;
+          } else {
+            logger.warn(`Skipping duplicate capability registration: ${capability.id}`);
+          }
+        }
+      } catch (error) {
+        logger.error(
+          `Error running loader '${loaderName}': ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
     }
+
+    logger.info(`Capability discovery complete. Total registered capabilities: ${totalLoaded}`);
   }
 
   get(id: string): Capability {

@@ -1,8 +1,8 @@
 import { CapabilityRegistry } from "../../capabilities/capability-registry.js";
-import { CapabilityBatchExecutor } from "../../capabilities/execution/capability-batch-executor.js";
-import { CapabilityExecutor } from "../../capabilities/execution/capability-executor.js";
 import { AgentDefinition, LLM, Message, ToolDefinition } from "../../llm/model.js";
+import { createLogger } from "../../utils/logger.js";
 import { ExecutionContext } from "../execution/execution-context.js";
+import { Orchestrator } from "../orchestration/orchestrator.js";
 import { AgentConfig } from "./agent-config.js";
 
 export interface AgentRunInput {
@@ -13,13 +13,14 @@ export interface AgentRunResult {
   response: string;
 }
 
+const logger = createLogger("AgentRunner");
+
 export class AgentRunner {
   constructor(
     private readonly config: AgentConfig,
     private readonly llm: LLM,
     private readonly capabilityRegistry: CapabilityRegistry,
-    private readonly capabilityExecutor: CapabilityExecutor,
-    private readonly capabilityBatchExecutor: CapabilityBatchExecutor,
+    private readonly orchestrator: Orchestrator,
   ) {}
 
   async run(
@@ -27,6 +28,8 @@ export class AgentRunner {
     context: ExecutionContext,
     systemPrompt: string,
   ): Promise<AgentRunResult> {
+    logger.info(`Starting run loop for agent '${this.config.id}' (runId: ${context.runId})`);
+
     const messages: Message[] = [
       {
         role: "system",
@@ -41,24 +44,37 @@ export class AgentRunner {
     const maxIterations = 10;
 
     for (let iteration = 0; iteration < maxIterations; iteration++) {
+      const toolDefs = this.getToolDefinitions();
+      const agentDefs = this.getAgentDefinitions();
+
+      logger.info(
+        `Agent '${this.config.id}' iteration ${iteration + 1}/${maxIterations} (messages: ${
+          messages.length
+        }, tools: ${toolDefs.length}, sub-agents: ${agentDefs.length})`,
+      );
+
       const response = await this.llm.chat({
         messages,
-        tools: this.getToolDefinitions(),
-        agents: this.getAgentDefinitions(),
+        tools: toolDefs,
+        agents: agentDefs,
         model: this.config.model.model,
-
         temperature: this.config.model.generation?.temperature,
-
         maxTokens: this.config.model.generation?.maxTokens,
-
         topP: this.config.model.generation?.topP,
       });
 
       if (!response.toolCalls || response.toolCalls.length === 0) {
+        logger.info(`Agent '${this.config.id}' completed run with final textual response`);
         return {
           response: response.content,
         };
       }
+
+      logger.info(
+        `Agent '${this.config.id}' requested ${response.toolCalls.length} tool call(s): [${response.toolCalls
+          .map((tc) => tc.name)
+          .join(", ")}]`,
+      );
 
       messages.push({
         role: "assistant",
@@ -66,28 +82,48 @@ export class AgentRunner {
         toolCalls: response.toolCalls,
       });
 
-      const requests = response.toolCalls.map((toolCall) => ({
-        name: toolCall.name,
-        input: toolCall.arguments,
-      }));
+      const plan = this.orchestrator.plan(response.toolCalls);
 
-      const results = await this.capabilityBatchExecutor.execute(requests, context);
+      const results = await this.orchestrator.execute(plan, context);
 
-      for (let i = 0; i < response.toolCalls.length; i++) {
-        const toolCall = response.toolCalls[i];
+      const resultsByTaskId = new Map(results.map((r) => [r.taskId, r]));
 
-        const result = results[i]!.result;
+      for (const toolCall of response.toolCalls) {
+        const result = resultsByTaskId.get(toolCall.id);
+
+        let contentStr: string;
+        if (!result) {
+          logger.warn(`Task [${toolCall.id}] had no execution result (skipped due to prior error)`);
+          contentStr = JSON.stringify({
+            error: "Task was skipped or not executed due to prior failure",
+            status: "skipped",
+          });
+        } else if (result.status === "failed") {
+          logger.warn(`Task [${toolCall.id}] failed: ${result.error ?? "Unknown error"}`);
+          contentStr = JSON.stringify({
+            error: result.error ?? "Execution failed",
+            output: result.output ?? null,
+            status: "failed",
+          });
+        } else {
+          contentStr =
+            typeof result.output === "string"
+              ? result.output
+              : JSON.stringify(result.output ?? null);
+        }
 
         messages.push({
           role: "tool",
-          toolCallId: toolCall!.id,
-          name: toolCall!.name,
-          content: JSON.stringify(result.output),
+          toolCallId: toolCall.id,
+          name: toolCall.name,
+          content: contentStr,
         });
       }
     }
 
-    throw new Error(`Agent exceeded maximum iterations: 10`);
+    const errorMessage = `Agent '${this.config.id}' exceeded maximum iterations: ${maxIterations}`;
+    logger.error(errorMessage);
+    throw new Error(errorMessage);
   }
 
   private getToolDefinitions(): ToolDefinition[] {
@@ -103,13 +139,18 @@ export class AgentRunner {
   }
 
   private getAgentDefinitions(): AgentDefinition[] {
+    const rawAgentId = this.config.id.startsWith("agent.")
+      ? this.config.id.slice(6)
+      : this.config.id;
+
     return this.capabilityRegistry
       .getByType("agent")
-      .filter((capability) => capability.id !== `agent.${this.config.id}`)
+      .filter(
+        (capability) => capability.id !== `agent.${rawAgentId}` && capability.id !== rawAgentId,
+      )
       .map((capability) => ({
         name: capability.id,
         description: capability.description,
-
         inputSchema: {
           type: "object",
           properties: {

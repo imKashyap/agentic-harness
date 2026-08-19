@@ -1,4 +1,5 @@
 import { ExecutionContext } from "../../core/execution/execution-context.js";
+import { createLogger } from "../../utils/logger.js";
 import { CapabilityRegistry } from "../capability-registry.js";
 import {
   CapabilityExecutionRequest,
@@ -6,6 +7,8 @@ import {
   CapabilityExecutor,
 } from "../execution/capability-executor.js";
 import { ToolExecutor } from "./tool-executor.js";
+
+const logger = createLogger("ToolCallExecutor");
 
 export class ToolCallExecutor implements CapabilityExecutor {
   constructor(
@@ -17,14 +20,34 @@ export class ToolCallExecutor implements CapabilityExecutor {
     request: CapabilityExecutionRequest,
     context: ExecutionContext,
   ): Promise<CapabilityExecutionResult> {
-    const tool = this.registry.getTool(request.name);
+    logger.debug(`Executing tool call request: '${request.name}'`);
 
-    const result = await this.toolExecutor.execute(tool, request.input, context);
+    let input = request.input;
+    if (typeof input === "string") {
+      try {
+        input = JSON.parse(input);
+      } catch {
+        // retain string input
+      }
+    }
 
-    return {
-      success: result.success,
-      output: result.output,
-      error: result.error,
-    };
+    try {
+      const tool = this.registry.getTool(request.name);
+      const result = await this.toolExecutor.execute(tool, input, context);
+
+      return {
+        success: result.success,
+        output: result.output,
+        error: result.error,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error(`Tool execution failed for '${request.name}': ${errorMessage}`);
+      return {
+        success: false,
+        output: null,
+        error: errorMessage,
+      };
+    }
   }
 }

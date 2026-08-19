@@ -12,10 +12,11 @@
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit --project tsconfig.json",
+    "test": "tsx --test 'src/**/*.test.ts'",
     "lint": "eslint .",
     "format": "prettier --write .",
     "fix": "npm run lint -- --fix && npm run format",
-    "verify": "npm run typecheck && npm run lint && prettier --check .",
+    "verify": "npm run typecheck && npm run test && npm run lint && prettier --check .",
     "audit": "npm audit --production",
     "prepare": "husky install"
   },
