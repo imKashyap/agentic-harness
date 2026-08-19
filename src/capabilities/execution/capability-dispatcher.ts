@@ -12,7 +12,7 @@ const logger = createLogger("CapabilityDispatcher");
 export class CapabilityDispatcher implements CapabilityExecutor {
   constructor(
     private readonly registry: CapabilityRegistry,
-    private readonly toolExecutor: CapabilityExecutor,
+    private readonly toolCallExecutor: CapabilityExecutor,
     private readonly subAgentExecutor: CapabilityExecutor,
   ) {}
 
@@ -26,7 +26,7 @@ export class CapabilityDispatcher implements CapabilityExecutor {
     switch (capability.type) {
       case "tool":
         logger.debug(`Routing '${request.name}' to ToolExecutor`);
-        return this.toolExecutor.execute(request, context, capability);
+        return this.toolCallExecutor.execute(request, context, capability);
 
       case "agent":
         logger.debug(`Routing '${request.name}' to SubAgentExecutor`);

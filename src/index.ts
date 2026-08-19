@@ -14,12 +14,14 @@ import { AgentConfigLoader } from "./core/agent/agent-config-loader.js";
 import { AgentFactory } from "./core/agent/agent-factory.js";
 import { AgentRegistry } from "./core/agent/agent-registry.js";
 import { ExecutionEngine } from "./core/orchestration/execution-engine.js";
+import { LLMPlanGenerator } from "./core/orchestration/llm-plan-generator.js";
 import { Orchestrator } from "./core/orchestration/orchestrator.js";
+import { PlanValidator } from "./core/orchestration/plan-validator.js";
 import { Planner } from "./core/orchestration/planner.js";
 import { Scheduler } from "./core/orchestration/scheduler.js";
+import { LLMFactory } from "./llm/llm-factory.js";
 import { FilePromptProvider } from "./prompts/file-prompt-provider.js";
 import { createLogger } from "./utils/logger.js";
-
 const logger = createLogger("Bootstrap");
 
 try {
@@ -65,9 +67,13 @@ try {
   );
 
   const scheduler = new Scheduler();
-  const planner = new Planner();
   const executionEngine = new ExecutionEngine(capabilityExecutor, scheduler);
-  const orchestrator = new Orchestrator(planner, executionEngine);
+
+  const plannerLLM = LLMFactory.create(config.model);
+  const planGenerator = new LLMPlanGenerator(plannerLLM, capabilityRegistry);
+  const planner = new Planner(planGenerator, capabilityRegistry);
+  const planValidator = new PlanValidator(capabilityRegistry);
+  const orchestrator = new Orchestrator(planner, executionEngine, planValidator);
 
   // ─────────────────────────────────────
   // Agent construction

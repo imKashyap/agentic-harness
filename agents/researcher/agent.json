@@ -15,6 +15,6 @@
     "version": "v1"
   },
   "skills": [],
-  "tools": [],
+  "tools": ["tool.calculator"],
   "subAgents": []
 }

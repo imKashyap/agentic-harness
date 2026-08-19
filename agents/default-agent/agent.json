@@ -14,7 +14,7 @@
     "id": "default-agent",
     "version": "v1"
   },
-  "skills": [],
-  "tools": [],
-  "subAgents": []
+  "skills": ["skill.greeting"],
+  "tools": ["tool.calculator"],
+  "subAgents": ["agent.researcher"]
 }

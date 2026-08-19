@@ -1,4 +1,5 @@
 import { CapabilityRegistry } from "../../capabilities/capability-registry.js";
+import { CapabilityResolver } from "../../capabilities/resolution/capability-resolver.js";
 import { AgentDefinition, LLM, Message, ToolDefinition } from "../../llm/model.js";
 import { createLogger } from "../../utils/logger.js";
 import { ExecutionContext } from "../execution/execution-context.js";
@@ -16,12 +17,17 @@ export interface AgentRunResult {
 const logger = createLogger("AgentRunner");
 
 export class AgentRunner {
+  private readonly capabilityResolver: CapabilityResolver;
+
   constructor(
     private readonly config: AgentConfig,
     private readonly llm: LLM,
     private readonly capabilityRegistry: CapabilityRegistry,
     private readonly orchestrator: Orchestrator,
-  ) {}
+    capabilityResolver?: CapabilityResolver,
+  ) {
+    this.capabilityResolver = capabilityResolver ?? new CapabilityResolver();
+  }
 
   async run(
     input: AgentRunInput,
@@ -30,10 +36,23 @@ export class AgentRunner {
   ): Promise<AgentRunResult> {
     logger.info(`Starting run loop for agent '${this.config.id}' (runId: ${context.runId})`);
 
+    const assignedSkills = this.capabilityResolver.resolveSkillsForAgent(
+      this.config,
+      this.capabilityRegistry,
+    );
+    const skillsPromptSection = this.capabilityResolver.formatSkillsPrompt(assignedSkills);
+    const fullSystemPrompt = systemPrompt + skillsPromptSection;
+
+    if (assignedSkills.length > 0) {
+      logger.info(
+        `Injected ${assignedSkills.length} skill(s) into system prompt for agent '${this.config.id}'`,
+      );
+    }
+
     const messages: Message[] = [
       {
         role: "system",
-        content: systemPrompt,
+        content: fullSystemPrompt,
       },
       {
         role: "user",
@@ -82,7 +101,10 @@ export class AgentRunner {
         toolCalls: response.toolCalls,
       });
 
-      const plan = this.orchestrator.plan(response.toolCalls);
+      const plan = await this.orchestrator.plan({
+        toolCalls: response.toolCalls,
+        context,
+      });
 
       const results = await this.orchestrator.execute(plan, context);
 
@@ -127,30 +149,21 @@ export class AgentRunner {
   }
 
   private getToolDefinitions(): ToolDefinition[] {
-    return this.capabilityRegistry.getByType("tool").map((capability) => {
-      const tool = this.capabilityRegistry.getTool(capability.id);
-
-      return {
+    return this.capabilityResolver
+      .resolveToolsForAgent(this.config, this.capabilityRegistry)
+      .map((tool) => ({
         name: tool.id,
         description: tool.description,
         inputSchema: tool.inputSchema,
-      };
-    });
+      }));
   }
 
   private getAgentDefinitions(): AgentDefinition[] {
-    const rawAgentId = this.config.id.startsWith("agent.")
-      ? this.config.id.slice(6)
-      : this.config.id;
-
-    return this.capabilityRegistry
-      .getByType("agent")
-      .filter(
-        (capability) => capability.id !== `agent.${rawAgentId}` && capability.id !== rawAgentId,
-      )
-      .map((capability) => ({
-        name: capability.id,
-        description: capability.description,
+    return this.capabilityResolver
+      .resolveAgentsForAgent(this.config, this.capabilityRegistry)
+      .map((agent) => ({
+        name: agent.id,
+        description: agent.description,
         inputSchema: {
           type: "object",
           properties: {

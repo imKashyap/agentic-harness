@@ -1,4 +1,5 @@
 import { CapabilityRegistry } from "../../capabilities/capability-registry.js";
+import { CapabilityResolver } from "../../capabilities/resolution/capability-resolver.js";
 import { LLMFactory } from "../../llm/llm-factory.js";
 import { PromptProvider } from "../../prompts/prompt-provider.js";
 import { createLogger } from "../../utils/logger.js";
@@ -10,11 +11,16 @@ import { AgentRunner } from "./agent-runner.js";
 const logger = createLogger("AgentFactory");
 
 export class AgentFactory {
+  private readonly capabilityResolver: CapabilityResolver;
+
   constructor(
     private readonly capabilityRegistry: CapabilityRegistry,
     private readonly orchestrator: Orchestrator,
     private readonly promptProvider: PromptProvider,
-  ) {}
+    capabilityResolver?: CapabilityResolver,
+  ) {
+    this.capabilityResolver = capabilityResolver ?? new CapabilityResolver();
+  }
 
   create(config: AgentConfig): Agent {
     logger.info(
@@ -22,7 +28,13 @@ export class AgentFactory {
     );
     const llm = LLMFactory.create(config.model);
 
-    const runner = new AgentRunner(config, llm, this.capabilityRegistry, this.orchestrator);
+    const runner = new AgentRunner(
+      config,
+      llm,
+      this.capabilityRegistry,
+      this.orchestrator,
+      this.capabilityResolver,
+    );
     return new Agent(config, this.promptProvider, runner);
   }
 }

@@ -8,8 +8,11 @@ import { ToolExecutor } from "../../capabilities/tools/tool-executor.js";
 import { Task } from "../execution/task.js";
 import { DependencyGraph } from "./dependency-graph.js";
 import { ExecutionEngine } from "./execution-engine.js";
+import { Orchestrator } from "./orchestrator.js";
+import { PlanValidator } from "./plan-validator.js";
 import { Planner } from "./planner.js";
 import { Scheduler } from "./scheduler.js";
+import { StaticPlanGenerator } from "./static-plan-generator.js";
 
 describe("DependencyGraph", () => {
   it("determines dependencies correctly", () => {
@@ -171,24 +174,6 @@ describe("CalculatorTool", () => {
   });
 });
 
-describe("Planner", () => {
-  it("creates execution plan with pending capability tasks from tool calls", () => {
-    const planner = new Planner();
-    const plan = planner.createPlan([
-      {
-        id: "call-1",
-        name: "tool.calculator",
-        arguments: { expression: "2 + 2" },
-      },
-    ]);
-
-    assert.strictEqual(plan.tasks.length, 1);
-    assert.strictEqual(plan.tasks[0]?.id, "call-1");
-    assert.strictEqual(plan.tasks[0]?.capability, "tool.calculator");
-    assert.strictEqual(plan.tasks[0]?.status, "pending");
-  });
-});
-
 describe("ExecutionEngine with CalculatorTool", () => {
   it("executes dependent tasks in topological order", async () => {
     const registry = new CapabilityRegistry();
@@ -255,5 +240,39 @@ describe("ExecutionEngine with CalculatorTool", () => {
       () => engine.execute(cyclicTasks, { runId: "test", agentId: "test" }),
       /contains a cycle/,
     );
+  });
+});
+
+describe("Orchestrator with StaticPlanGenerator and PlanValidator", () => {
+  it("plans and executes tasks end-to-end", async () => {
+    const registry = new CapabilityRegistry();
+    registry.register(new CalculatorTool());
+
+    const toolExecutor = new ToolExecutor();
+    const toolCallExecutor = new ToolCallExecutor(registry, toolExecutor);
+    const engine = new ExecutionEngine(toolCallExecutor, new Scheduler());
+
+    const planGenerator = new StaticPlanGenerator();
+    const planner = new Planner(planGenerator, registry);
+    const validator = new PlanValidator(registry);
+    const orchestrator = new Orchestrator(planner, engine, validator);
+
+    const plan = await orchestrator.plan({
+      toolCalls: [
+        {
+          id: "call-1",
+          name: "tool.calculator",
+          arguments: { expression: "3 * 3" },
+        },
+      ],
+    });
+
+    assert.strictEqual(plan.tasks.length, 1);
+    assert.strictEqual(plan.tasks[0]?.id, "call-1");
+    assert.deepStrictEqual(plan.tasks[0]?.dependsOn, []);
+
+    const results = await orchestrator.execute(plan, { runId: "run-1", agentId: "test" });
+    assert.strictEqual(results.length, 1);
+    assert.strictEqual(results[0]?.output, 9);
   });
 });
