@@ -5,7 +5,7 @@ import {
   CapabilityExecutionRequest,
   CapabilityExecutionResult,
   CapabilityExecutor,
-} from "../execution/capability-executor.js";
+} from "../dispatch/capability-executor.js";
 import { AgentCapability } from "./agent-capability.js";
 
 const logger = createLogger("SubAgentExecutor");

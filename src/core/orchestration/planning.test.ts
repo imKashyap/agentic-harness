@@ -3,7 +3,8 @@ import { describe, it } from "node:test";
 
 import { CapabilityRegistry } from "../../capabilities/capability-registry.js";
 import { CalculatorTool } from "../../capabilities/tools/examples/calculator-tool.js";
-import { LLM, LLMRequest, LLMResponse } from "../../llm/model.js";
+import { LLM, LLMRequest, LLMResponse } from "../../llm/types.js";
+import { AdaptivePlanGenerator } from "./adaptive-plan-generator.js";
 import { LLMPlanGenerator } from "./llm-plan-generator.js";
 import { PlanValidator } from "./plan-validator.js";
 import { Planner } from "./planner.js";
@@ -11,9 +12,12 @@ import { StaticPlanGenerator } from "./static-plan-generator.js";
 
 class MockPlannerLLM implements LLM {
   public lastRequest?: LLMRequest;
+  public callCount = 0;
+
   constructor(private readonly responseContent: string) {}
 
   async chat(request: LLMRequest): Promise<LLMResponse> {
+    this.callCount++;
     this.lastRequest = request;
     return {
       content: this.responseContent,
@@ -35,6 +39,72 @@ describe("StaticPlanGenerator", () => {
     assert.strictEqual(steps[0]?.id, "call-1");
     assert.deepStrictEqual(steps[0]?.dependsOn, []);
     assert.strictEqual(steps[1]?.id, "call-2");
+    assert.deepStrictEqual(steps[1]?.dependsOn, []);
+  });
+});
+
+describe("AdaptivePlanGenerator (Fast-Path Hybrid)", () => {
+  it("fast-path: skips LLM call entirely when toolCalls count is 0 or 1", async () => {
+    const staticGen = new StaticPlanGenerator();
+    const mockLLM = new MockPlannerLLM(JSON.stringify({ steps: [] }));
+    const llmGen = new LLMPlanGenerator(mockLLM);
+    const adaptiveGen = new AdaptivePlanGenerator(staticGen, llmGen);
+
+    const steps = await adaptiveGen.generate({
+      toolCalls: [
+        { id: "single-call", name: "tool.calculator", arguments: { expression: "5 * 5" } },
+      ],
+    });
+
+    assert.strictEqual(steps.length, 1);
+    assert.strictEqual(steps[0]?.id, "single-call");
+    assert.deepStrictEqual(steps[0]?.dependsOn, []);
+    // Ensure LLM was NEVER invoked (0ms fast path)
+    assert.strictEqual(mockLLM.callCount, 0);
+  });
+
+  it("dynamic-path: invokes LLM planner when toolCalls count > 1", async () => {
+    const staticGen = new StaticPlanGenerator();
+    const mockLLM = new MockPlannerLLM(
+      JSON.stringify({
+        steps: [
+          { id: "c1", toolCallId: "call-1", dependsOn: [] },
+          { id: "c2", toolCallId: "call-2", dependsOn: ["c1"] },
+        ],
+      }),
+    );
+    const llmGen = new LLMPlanGenerator(mockLLM);
+    const adaptiveGen = new AdaptivePlanGenerator(staticGen, llmGen);
+
+    const steps = await adaptiveGen.generate({
+      toolCalls: [
+        { id: "call-1", name: "tool.calculator", arguments: { expression: "2 + 2" } },
+        { id: "call-2", name: "tool.calculator", arguments: { expression: "4 * 4" } },
+      ],
+    });
+
+    assert.strictEqual(steps.length, 2);
+    assert.strictEqual(mockLLM.callCount, 1);
+    assert.deepStrictEqual(steps[1]?.dependsOn, ["c1"]);
+  });
+
+  it("fallback: falls back to static parallel plan when LLM planner throws", async () => {
+    const staticGen = new StaticPlanGenerator();
+    const brokenLLM = new MockPlannerLLM("invalid json");
+    const llmGen = new LLMPlanGenerator(brokenLLM);
+    const adaptiveGen = new AdaptivePlanGenerator(staticGen, llmGen, {
+      fallbackToStaticOnError: true,
+    });
+
+    const steps = await adaptiveGen.generate({
+      toolCalls: [
+        { id: "call-1", name: "tool.calculator", arguments: {} },
+        { id: "call-2", name: "tool.calculator", arguments: {} },
+      ],
+    });
+
+    assert.strictEqual(steps.length, 2);
+    assert.deepStrictEqual(steps[0]?.dependsOn, []);
     assert.deepStrictEqual(steps[1]?.dependsOn, []);
   });
 });
@@ -180,7 +250,7 @@ describe("PlanValidator (Capability-Aware)", () => {
           },
         ],
       });
-    }, /Plan contains unregistered capability: 'tool.unregistered_tool'/);
+    }, /Capability not found: tool\.unregistered_tool/);
   });
 
   it("rejects plans with missing dependencies or cycles", () => {
@@ -199,7 +269,7 @@ describe("PlanValidator (Capability-Aware)", () => {
           },
         ],
       });
-    }, /depends on missing task/);
+    }, /depends on non-existent task 'missing-task'/);
 
     assert.throws(() => {
       validator.validate({
@@ -224,7 +294,7 @@ describe("PlanValidator (Capability-Aware)", () => {
           },
         ],
       });
-    }, /contains a dependency cycle/);
+    }, /Dependency cycle detected/);
   });
 });
 

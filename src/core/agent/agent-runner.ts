@@ -1,6 +1,9 @@
 import { CapabilityRegistry } from "../../capabilities/capability-registry.js";
 import { CapabilityResolver } from "../../capabilities/resolution/capability-resolver.js";
-import { AgentDefinition, LLM, Message, ToolDefinition } from "../../llm/model.js";
+import { AgentExecutionError } from "../../errors/orchestration-errors.js";
+import { AgentDefinition, LLM, Message, ToolDefinition } from "../../llm/types.js";
+import { MemoryManager } from "../../memory/long-term/memory-manager.js";
+import { ContextCompactor } from "../../memory/session/context-compactor.js";
 import { createLogger } from "../../utils/logger.js";
 import { ExecutionContext } from "../execution/execution-context.js";
 import { Orchestrator } from "../orchestration/orchestrator.js";
@@ -8,16 +11,22 @@ import { AgentConfig } from "./agent-config.js";
 
 export interface AgentRunInput {
   message: string;
+  sessionId?: string;
+  history?: Message[];
+  enableLongTermMemory?: boolean;
 }
 
 export interface AgentRunResult {
   response: string;
+  messages: Message[];
+  sessionId?: string;
 }
 
 const logger = createLogger("AgentRunner");
 
 export class AgentRunner {
   private readonly capabilityResolver: CapabilityResolver;
+  private readonly contextCompactor: ContextCompactor;
 
   constructor(
     private readonly config: AgentConfig,
@@ -25,8 +34,11 @@ export class AgentRunner {
     private readonly capabilityRegistry: CapabilityRegistry,
     private readonly orchestrator: Orchestrator,
     capabilityResolver?: CapabilityResolver,
+    private readonly memoryManager?: MemoryManager,
+    contextCompactor?: ContextCompactor,
   ) {
     this.capabilityResolver = capabilityResolver ?? new CapabilityResolver();
+    this.contextCompactor = contextCompactor ?? new ContextCompactor();
   }
 
   async run(
@@ -34,14 +46,18 @@ export class AgentRunner {
     context: ExecutionContext,
     systemPrompt: string,
   ): Promise<AgentRunResult> {
-    logger.info(`Starting run loop for agent '${this.config.id}' (runId: ${context.runId})`);
+    logger.info(
+      `Starting run loop for agent '${this.config.id}' (runId: ${context.runId}${
+        input.sessionId ? `, sessionId: ${input.sessionId}` : ""
+      })`,
+    );
 
+    // 1. Resolve skills
     const assignedSkills = this.capabilityResolver.resolveSkillsForAgent(
       this.config,
       this.capabilityRegistry,
     );
     const skillsPromptSection = this.capabilityResolver.formatSkillsPrompt(assignedSkills);
-    const fullSystemPrompt = systemPrompt + skillsPromptSection;
 
     if (assignedSkills.length > 0) {
       logger.info(
@@ -49,16 +65,45 @@ export class AgentRunner {
       );
     }
 
-    const messages: Message[] = [
+    // 2. Recall Long-Term Memory (if enabled and manager available)
+    let memoryPromptSection = "";
+    if (this.memoryManager && input.enableLongTermMemory !== false) {
+      try {
+        const recalled = await this.memoryManager.recall(input.message, {
+          agentId: this.config.id,
+          sessionId: input.sessionId,
+          limit: 4,
+        });
+        memoryPromptSection = this.memoryManager.formatMemoryPrompt(recalled);
+        if (recalled.length > 0) {
+          logger.info(
+            `Injected ${recalled.length} long-term memory fact(s) into system prompt for agent '${this.config.id}'`,
+          );
+        }
+      } catch (err) {
+        logger.warn(`Failed to recall long-term memory: ${String(err)}`);
+      }
+    }
+
+    const fullSystemPrompt = systemPrompt + skillsPromptSection + memoryPromptSection;
+
+    // 3. Assemble message history
+    const previousHistory = (input.history ?? []).filter((m) => m.role !== "system");
+
+    const rawMessages: Message[] = [
       {
         role: "system",
         content: fullSystemPrompt,
       },
+      ...previousHistory,
       {
         role: "user",
         content: input.message,
       },
     ];
+
+    // 4. Apply Context Compactor to enforce limits while preserving tool-call integrity
+    const messages = this.contextCompactor.compact(rawMessages);
 
     const maxIterations = 10;
 
@@ -84,8 +129,15 @@ export class AgentRunner {
 
       if (!response.toolCalls || response.toolCalls.length === 0) {
         logger.info(`Agent '${this.config.id}' completed run with final textual response`);
+        messages.push({
+          role: "assistant",
+          content: response.content,
+        });
+
         return {
           response: response.content,
+          messages,
+          sessionId: input.sessionId,
         };
       }
 
@@ -143,9 +195,9 @@ export class AgentRunner {
       }
     }
 
-    const errorMessage = `Agent '${this.config.id}' exceeded maximum iterations: ${maxIterations}`;
-    logger.error(errorMessage);
-    throw new Error(errorMessage);
+    const errorMessage = `Exceeded maximum iterations: ${maxIterations}`;
+    logger.error(`Agent '${this.config.id}' ${errorMessage}`);
+    throw new AgentExecutionError(this.config.id, errorMessage, { maxIterations });
   }
 
   private getToolDefinitions(): ToolDefinition[] {

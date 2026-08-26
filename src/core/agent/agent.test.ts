@@ -3,13 +3,13 @@ import { describe, it } from "node:test";
 
 import { SubAgentExecutor } from "../../capabilities/agents/sub-agent-executor.js";
 import { CapabilityRegistry } from "../../capabilities/capability-registry.js";
-import { CapabilityDispatcher } from "../../capabilities/execution/capability-dispatcher.js";
+import { CapabilityDispatcher } from "../../capabilities/dispatch/capability-dispatcher.js";
 import { Skill } from "../../capabilities/skills/skill.js";
 import { CalculatorTool } from "../../capabilities/tools/examples/calculator-tool.js";
 import { Tool } from "../../capabilities/tools/tool.js";
-import { ToolCallExecutor } from "../../capabilities/tools/tool-call-executor.js";
+import { ToolCapabilityExecutor } from "../../capabilities/tools/tool-capability-executor.js";
 import { ToolExecutor } from "../../capabilities/tools/tool-executor.js";
-import { LLM, LLMRequest, LLMResponse } from "../../llm/model.js";
+import { LLM, LLMRequest, LLMResponse } from "../../llm/types.js";
 import { PromptProvider } from "../../prompts/prompt-provider.js";
 import { ExecutionEngine } from "../orchestration/execution-engine.js";
 import { Orchestrator } from "../orchestration/orchestrator.js";
@@ -83,7 +83,7 @@ describe("Agent & AgentRunner with Scoping and Skill Injection", () => {
     const engine = new ExecutionEngine(
       new CapabilityDispatcher(
         registry,
-        new ToolCallExecutor(registry, new ToolExecutor()),
+        new ToolCapabilityExecutor(registry, new ToolExecutor()),
         new SubAgentExecutor(new AgentRegistry()),
       ),
       new Scheduler(),
@@ -133,7 +133,7 @@ describe("Agent & AgentRunner with Scoping and Skill Injection", () => {
     const engine = new ExecutionEngine(
       new CapabilityDispatcher(
         registry,
-        new ToolCallExecutor(registry, new ToolExecutor()),
+        new ToolCapabilityExecutor(registry, new ToolExecutor()),
         new SubAgentExecutor(new AgentRegistry()),
       ),
       new Scheduler(),
@@ -172,9 +172,9 @@ describe("Agent & AgentRunner with Scoping and Skill Injection", () => {
 
     const planner = new Planner(new StaticPlanGenerator(), registry);
     const toolExecutor = new ToolExecutor();
-    const toolCallExecutor = new ToolCallExecutor(registry, toolExecutor);
+    const toolCapabilityExecutor = new ToolCapabilityExecutor(registry, toolExecutor);
     const subAgentExecutor = new SubAgentExecutor(new AgentRegistry());
-    const dispatcher = new CapabilityDispatcher(registry, toolCallExecutor, subAgentExecutor);
+    const dispatcher = new CapabilityDispatcher(registry, toolCapabilityExecutor, subAgentExecutor);
     const engine = new ExecutionEngine(dispatcher, new Scheduler());
     const validator = new PlanValidator(registry);
     const orchestrator = new Orchestrator(planner, engine, validator);
@@ -217,11 +217,11 @@ describe("Agent & AgentRunner with Scoping and Skill Injection", () => {
     const agentRegistry = new AgentRegistry();
     const planner = new Planner(new StaticPlanGenerator(), capabilityRegistry);
     const toolExecutor = new ToolExecutor();
-    const toolCallExecutor = new ToolCallExecutor(capabilityRegistry, toolExecutor);
+    const toolCapabilityExecutor = new ToolCapabilityExecutor(capabilityRegistry, toolExecutor);
     const subAgentExecutor = new SubAgentExecutor(agentRegistry);
     const dispatcher = new CapabilityDispatcher(
       capabilityRegistry,
-      toolCallExecutor,
+      toolCapabilityExecutor,
       subAgentExecutor,
     );
     const engine = new ExecutionEngine(dispatcher, new Scheduler());

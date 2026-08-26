@@ -5,12 +5,12 @@ import {
   CapabilityExecutionRequest,
   CapabilityExecutionResult,
   CapabilityExecutor,
-} from "../execution/capability-executor.js";
+} from "../dispatch/capability-executor.js";
 import { ToolExecutor } from "./tool-executor.js";
 
-const logger = createLogger("ToolCallExecutor");
+const logger = createLogger("ToolCapabilityExecutor");
 
-export class ToolCallExecutor implements CapabilityExecutor {
+export class ToolCapabilityExecutor implements CapabilityExecutor {
   constructor(
     private readonly registry: CapabilityRegistry,
     private readonly toolExecutor: ToolExecutor,
@@ -20,7 +20,7 @@ export class ToolCallExecutor implements CapabilityExecutor {
     request: CapabilityExecutionRequest,
     context: ExecutionContext,
   ): Promise<CapabilityExecutionResult> {
-    logger.debug(`Executing tool call request: '${request.name}'`);
+    logger.debug(`Executing tool capability request: '${request.name}'`);
 
     let input = request.input;
     if (typeof input === "string") {

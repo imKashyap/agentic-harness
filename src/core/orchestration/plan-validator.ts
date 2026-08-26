@@ -1,4 +1,11 @@
 import { CapabilityRegistry } from "../../capabilities/capability-registry.js";
+import { CapabilityNotFoundError } from "../../errors/capability-errors.js";
+import {
+  DependencyCycleError,
+  DuplicateTaskIdError,
+  MissingDependencyError,
+  PlanValidationError,
+} from "../../errors/orchestration-errors.js";
 import { createLogger } from "../../utils/logger.js";
 import { DependencyGraph } from "./dependency-graph.js";
 import { ExecutionPlan } from "./execution-plan.js";
@@ -24,9 +31,8 @@ export class PlanValidator {
 
     for (const task of plan.tasks) {
       if (ids.has(task.id)) {
-        const errorMsg = `Duplicate task id in plan: ${task.id}`;
-        logger.error(errorMsg);
-        throw new Error(errorMsg);
+        logger.error(`Duplicate task ID in plan: ${task.id}`);
+        throw new DuplicateTaskIdError(task.id);
       }
 
       ids.add(task.id);
@@ -39,9 +45,8 @@ export class PlanValidator {
     for (const task of plan.tasks) {
       for (const dependencyId of task.dependsOn ?? []) {
         if (!taskIds.has(dependencyId)) {
-          const errorMsg = `Task ${task.id} depends on missing task ${dependencyId}`;
-          logger.error(errorMsg);
-          throw new Error(errorMsg);
+          logger.error(`Task ${task.id} depends on missing task ${dependencyId}`);
+          throw new MissingDependencyError(task.id, dependencyId);
         }
       }
     }
@@ -51,9 +56,8 @@ export class PlanValidator {
     const graph = new DependencyGraph(plan.tasks);
 
     if (graph.hasCycle()) {
-      const errorMsg = "Execution plan contains a dependency cycle";
-      logger.error(errorMsg);
-      throw new Error(errorMsg);
+      logger.error("Execution plan contains a dependency cycle");
+      throw new DependencyCycleError("plan_root");
     }
   }
 
@@ -64,9 +68,10 @@ export class PlanValidator {
 
     for (const task of plan.tasks) {
       if (!this.capabilityRegistry.has(task.capability)) {
-        const errorMsg = `Plan contains unregistered capability: '${task.capability}' (task: ${task.id})`;
-        logger.error(errorMsg);
-        throw new Error(errorMsg);
+        logger.error(
+          `Plan contains unregistered capability: '${task.capability}' (task: ${task.id})`,
+        );
+        throw new CapabilityNotFoundError(task.capability);
       }
 
       try {
@@ -79,7 +84,7 @@ export class PlanValidator {
       } catch (error) {
         const errorMsg = `Failed to resolve capability for task ${task.id}: ${error instanceof Error ? error.message : String(error)}`;
         logger.error(errorMsg);
-        throw new Error(errorMsg);
+        throw new PlanValidationError(errorMsg, { taskId: task.id, capability: task.capability });
       }
     }
   }

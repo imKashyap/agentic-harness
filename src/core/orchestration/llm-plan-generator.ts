@@ -1,5 +1,6 @@
 import { CapabilityRegistry } from "../../capabilities/capability-registry.js";
-import { LLM } from "../../llm/model.js";
+import { PlanValidationError } from "../../errors/orchestration-errors.js";
+import { LLM } from "../../llm/types.js";
 import { createLogger } from "../../utils/logger.js";
 import { PlanGenerator } from "./plan-generator.js";
 import { PlanStep } from "./plan-step.js";
@@ -117,7 +118,7 @@ Create the execution plan JSON with appropriate dependencies:
     const content = response.content;
     if (!content || content.trim().length === 0) {
       logger.error("Planner LLM returned an empty response");
-      throw new Error("Planner LLM returned empty response");
+      throw new PlanValidationError("Planner LLM returned empty response");
     }
 
     const parsed = this.parsePlan(content);
@@ -149,7 +150,7 @@ Create the execution plan JSON with appropriate dependencies:
       return JSON.parse(json) as LLMPlan;
     } catch {
       logger.error(`Planner LLM returned invalid JSON: ${content}`);
-      throw new Error(`Planner LLM returned invalid JSON: ${content}`);
+      throw new PlanValidationError(`Planner LLM returned invalid JSON: ${content}`);
     }
   }
 
@@ -158,7 +159,7 @@ Create the execution plan JSON with appropriate dependencies:
 
     if (!plan || !Array.isArray(plan.steps)) {
       logger.error("Invalid planner response: steps must be an array");
-      throw new Error("Invalid planner response: steps must be an array");
+      throw new PlanValidationError("Invalid planner response: steps must be an array");
     }
 
     const seen = new Set<string>();
@@ -166,7 +167,7 @@ Create the execution plan JSON with appropriate dependencies:
     return plan.steps.map((step) => {
       if (seen.has(step.toolCallId)) {
         logger.error(`Planner returned duplicate toolCallId: ${step.toolCallId}`);
-        throw new Error(`Planner returned duplicate toolCallId: ${step.toolCallId}`);
+        throw new PlanValidationError(`Planner returned duplicate toolCallId: ${step.toolCallId}`);
       }
 
       seen.add(step.toolCallId);
@@ -175,7 +176,7 @@ Create the execution plan JSON with appropriate dependencies:
 
       if (!toolCall) {
         logger.error(`Planner referenced unknown toolCallId: ${step.toolCallId}`);
-        throw new Error(`Planner referenced unknown toolCallId: ${step.toolCallId}`);
+        throw new PlanValidationError(`Planner referenced unknown toolCallId: ${step.toolCallId}`);
       }
 
       return {

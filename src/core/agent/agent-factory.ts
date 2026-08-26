@@ -1,6 +1,8 @@
 import { CapabilityRegistry } from "../../capabilities/capability-registry.js";
 import { CapabilityResolver } from "../../capabilities/resolution/capability-resolver.js";
 import { LLMFactory } from "../../llm/llm-factory.js";
+import { MemoryManager } from "../../memory/long-term/memory-manager.js";
+import { ContextCompactor } from "../../memory/session/context-compactor.js";
 import { PromptProvider } from "../../prompts/prompt-provider.js";
 import { createLogger } from "../../utils/logger.js";
 import { Orchestrator } from "../orchestration/orchestrator.js";
@@ -18,6 +20,8 @@ export class AgentFactory {
     private readonly orchestrator: Orchestrator,
     private readonly promptProvider: PromptProvider,
     capabilityResolver?: CapabilityResolver,
+    private readonly memoryManager?: MemoryManager,
+    private readonly contextCompactor?: ContextCompactor,
   ) {
     this.capabilityResolver = capabilityResolver ?? new CapabilityResolver();
   }
@@ -34,6 +38,8 @@ export class AgentFactory {
       this.capabilityRegistry,
       this.orchestrator,
       this.capabilityResolver,
+      this.memoryManager,
+      this.contextCompactor,
     );
     return new Agent(config, this.promptProvider, runner);
   }

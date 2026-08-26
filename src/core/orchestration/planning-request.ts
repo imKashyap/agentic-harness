@@ -1,5 +1,5 @@
 import { Capability } from "../../capabilities/capability.js";
-import { ToolCall } from "../../llm/model.js";
+import { ToolCall } from "../../llm/types.js";
 import { ExecutionContext } from "../execution/execution-context.js";
 
 export interface CapabilityCallInfo {

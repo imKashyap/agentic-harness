@@ -1,4 +1,4 @@
-import { ToolCall } from "../../llm/model.js";
+import { ToolCall } from "../../llm/types.js";
 
 export interface PlanStep {
   id: string;

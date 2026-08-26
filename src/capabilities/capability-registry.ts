@@ -1,3 +1,8 @@
+import {
+  CapabilityAlreadyRegisteredError,
+  CapabilityNotFoundError,
+  CapabilityTypeError,
+} from "../errors/capability-errors.js";
 import { createLogger } from "../utils/logger.js";
 import { AgentCapability } from "./agents/agent-capability.js";
 import { Capability } from "./capability.js";
@@ -12,7 +17,7 @@ export class CapabilityRegistry {
   register(capability: Capability): void {
     if (this.capabilities.has(capability.id)) {
       logger.error(`Capability already registered: ${capability.id}`);
-      throw new Error(`Capability already registered: ${capability.id}`);
+      throw new CapabilityAlreadyRegisteredError(capability.id);
     }
 
     this.capabilities.set(capability.id, capability);
@@ -30,7 +35,7 @@ export class CapabilityRegistry {
 
     if (!capability) {
       logger.error(`Capability not found in registry: ${id}`);
-      throw new Error(`Capability not found: ${id}`);
+      throw new CapabilityNotFoundError(id);
     }
 
     return capability;
@@ -41,7 +46,7 @@ export class CapabilityRegistry {
 
     if (capability.type !== "skill") {
       logger.error(`Capability '${id}' is not a skill (actual: ${capability.type})`);
-      throw new Error(`Capability ${id} is not a skill`);
+      throw new CapabilityTypeError(id, "skill", capability.type);
     }
 
     return capability as Skill;
@@ -52,7 +57,7 @@ export class CapabilityRegistry {
 
     if (capability.type !== "tool") {
       logger.error(`Capability '${id}' is not a tool (actual: ${capability.type})`);
-      throw new Error(`Capability ${id} is not a tool`);
+      throw new CapabilityTypeError(id, "tool", capability.type);
     }
 
     return capability as Tool;
@@ -63,7 +68,7 @@ export class CapabilityRegistry {
 
     if (capability.type !== "agent") {
       logger.error(`Capability '${id}' is not an agent (actual: ${capability.type})`);
-      throw new Error(`Capability ${id} is not an agent`);
+      throw new CapabilityTypeError(id, "agent", capability.type);
     }
 
     return capability as AgentCapability;

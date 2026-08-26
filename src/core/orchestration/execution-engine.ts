@@ -1,4 +1,4 @@
-import { CapabilityExecutor } from "../../capabilities/execution/capability-executor.js";
+import { CapabilityExecutor } from "../../capabilities/dispatch/capability-executor.js";
 import { createLogger } from "../../utils/logger.js";
 import { ExecutionContext } from "../execution/execution-context.js";
 import { ExecutionResult } from "../execution/execution-result.js";

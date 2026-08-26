@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { CapabilityRegistry } from "../../capabilities/capability-registry.js";
 import { CalculatorTool } from "../../capabilities/tools/examples/calculator-tool.js";
-import { ToolCallExecutor } from "../../capabilities/tools/tool-call-executor.js";
+import { ToolCapabilityExecutor } from "../../capabilities/tools/tool-capability-executor.js";
 import { ToolExecutor } from "../../capabilities/tools/tool-executor.js";
 import { Task } from "../execution/task.js";
 import { DependencyGraph } from "./dependency-graph.js";
@@ -181,9 +181,9 @@ describe("ExecutionEngine with CalculatorTool", () => {
     registry.register(tool);
 
     const toolExecutor = new ToolExecutor();
-    const toolCallExecutor = new ToolCallExecutor(registry, toolExecutor);
+    const toolCapabilityExecutor = new ToolCapabilityExecutor(registry, toolExecutor);
     const scheduler = new Scheduler();
-    const engine = new ExecutionEngine(toolCallExecutor, scheduler);
+    const engine = new ExecutionEngine(toolCapabilityExecutor, scheduler);
 
     const tasks: Task[] = [
       {
@@ -214,8 +214,8 @@ describe("ExecutionEngine with CalculatorTool", () => {
 
   it("throws on cyclic dependencies", async () => {
     const registry = new CapabilityRegistry();
-    const toolCallExecutor = new ToolCallExecutor(registry, new ToolExecutor());
-    const engine = new ExecutionEngine(toolCallExecutor, new Scheduler());
+    const toolCapabilityExecutor = new ToolCapabilityExecutor(registry, new ToolExecutor());
+    const engine = new ExecutionEngine(toolCapabilityExecutor, new Scheduler());
 
     const cyclicTasks: Task[] = [
       {
@@ -249,8 +249,8 @@ describe("Orchestrator with StaticPlanGenerator and PlanValidator", () => {
     registry.register(new CalculatorTool());
 
     const toolExecutor = new ToolExecutor();
-    const toolCallExecutor = new ToolCallExecutor(registry, toolExecutor);
-    const engine = new ExecutionEngine(toolCallExecutor, new Scheduler());
+    const toolCapabilityExecutor = new ToolCapabilityExecutor(registry, toolExecutor);
+    const engine = new ExecutionEngine(toolCapabilityExecutor, new Scheduler());
 
     const planGenerator = new StaticPlanGenerator();
     const planner = new Planner(planGenerator, registry);

@@ -8,7 +8,7 @@ export interface CapabilityExecutionRequest {
 
 export interface CapabilityExecutionResult {
   success: boolean;
-  output: unknown;
+  output?: unknown;
   error?: string;
 }
 

@@ -1,5 +1,5 @@
 import { createLogger } from "../../../utils/logger.js";
-import { LLM, LLMRequest, LLMResponse } from "../../model.js";
+import { LLM, LLMRequest, LLMResponse } from "../../types.js";
 
 const logger = createLogger("MockLLM");
 

@@ -1,3 +1,5 @@
+import { HarnessError } from "../../errors/harness-error.js";
+import { AgentNotFoundError } from "../../errors/orchestration-errors.js";
 import { createLogger } from "../../utils/logger.js";
 import { Agent } from "./agent.js";
 
@@ -9,7 +11,14 @@ export class AgentRegistry {
   register(agentId: string, agent: Agent): void {
     if (this.agents.has(agentId)) {
       logger.error(`Attempted to register already registered agent: ${agentId}`);
-      throw new Error(`Agent already registered: ${agentId}`);
+      throw new HarnessError(
+        `Agent already registered: ${agentId}`,
+        "AGENT_ALREADY_REGISTERED",
+        409,
+        {
+          agentId,
+        },
+      );
     }
 
     this.agents.set(agentId, agent);
@@ -28,7 +37,7 @@ export class AgentRegistry {
 
     if (!agent) {
       logger.error(`Agent not found in registry: ${agentId}`);
-      throw new Error(`Agent not found: ${agentId}`);
+      throw new AgentNotFoundError(agentId);
     }
 
     return agent;

@@ -3,9 +3,7 @@ export type MessageRole = "system" | "user" | "assistant" | "tool";
 export interface Message {
   role: MessageRole;
   content?: string;
-
   toolCalls?: ToolCall[];
-
   toolCallId?: string;
   name?: string;
 }
@@ -25,19 +23,14 @@ export interface ToolDefinition {
 export interface AgentDefinition {
   name: string;
   description: string;
-
   inputSchema: Record<string, unknown>;
 }
 
 export interface LLMRequest {
   messages: Message[];
-
   tools?: ToolDefinition[];
-
   agents?: AgentDefinition[];
-
   model?: string;
-
   temperature?: number;
   maxTokens?: number;
   topP?: number;

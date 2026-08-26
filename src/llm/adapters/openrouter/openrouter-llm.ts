@@ -1,5 +1,6 @@
+import { HarnessError } from "../../../errors/harness-error.js";
 import { createLogger } from "../../../utils/logger.js";
-import { LLM, LLMRequest, LLMResponse, Message, ToolCall } from "../../model.js";
+import { LLM, LLMRequest, LLMResponse, Message, ToolCall } from "../../types.js";
 
 const logger = createLogger("OpenRouterLLM");
 
@@ -11,7 +12,7 @@ export class OpenRouterLLM implements LLM {
 
     if (!apiKey) {
       logger.error("OPENROUTER_API_KEY is not configured in environment");
-      throw new Error("OPENROUTER_API_KEY is not configured");
+      throw new HarnessError("OPENROUTER_API_KEY is not configured", "MISSING_API_KEY", 401);
     }
 
     const effectiveModel = request.model ?? this.model;
@@ -62,7 +63,7 @@ export class OpenRouterLLM implements LLM {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error(`Network error connecting to OpenRouter: ${errorMessage}`);
-      throw new Error(`OpenRouter network error: ${errorMessage}`);
+      throw new HarnessError(`OpenRouter network error: ${errorMessage}`, "NETWORK_ERROR", 502);
     }
 
     const latencyMs = Date.now() - startTime;
@@ -71,7 +72,7 @@ export class OpenRouterLLM implements LLM {
       const body = await response.text();
       const errorMessage = `OpenRouter request failed [${response.status} ${response.statusText}] in ${latencyMs}ms: ${body}`;
       logger.error(errorMessage);
-      throw new Error(errorMessage);
+      throw new HarnessError(errorMessage, "UPSTREAM_API_ERROR", response.status);
     }
 
     const data = (await response.json()) as {
@@ -93,13 +94,21 @@ export class OpenRouterLLM implements LLM {
 
     if (data.error) {
       logger.error(`OpenRouter returned API error: ${JSON.stringify(data.error)}`);
-      throw new Error(`OpenRouter API error: ${JSON.stringify(data.error)}`);
+      throw new HarnessError(
+        `OpenRouter API error: ${JSON.stringify(data.error)}`,
+        "PROVIDER_ERROR",
+        502,
+      );
     }
 
     const choice = data.choices?.[0];
     if (!choice) {
       logger.error(`OpenRouter returned no choices in response: ${JSON.stringify(data)}`);
-      throw new Error("OpenRouter response contained no choices");
+      throw new HarnessError(
+        "OpenRouter response contained no choices",
+        "EMPTY_CHOICES_ERROR",
+        502,
+      );
     }
 
     const message = choice.message;
