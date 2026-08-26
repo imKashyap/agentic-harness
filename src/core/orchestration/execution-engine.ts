@@ -1,4 +1,5 @@
 import { CapabilityExecutor } from "../../capabilities/dispatch/capability-executor.js";
+import { HarnessEventBus } from "../../events/event-bus.js";
 import { createLogger } from "../../utils/logger.js";
 import { ExecutionContext } from "../execution/execution-context.js";
 import { ExecutionResult } from "../execution/execution-result.js";
@@ -12,6 +13,7 @@ export class ExecutionEngine {
   constructor(
     private readonly capabilityExecutor: CapabilityExecutor,
     private readonly scheduler: Scheduler,
+    private readonly eventBus?: HarnessEventBus,
   ) {}
 
   async execute(tasks: Task[], context: ExecutionContext): Promise<ExecutionResult[]> {
@@ -52,6 +54,15 @@ export class ExecutionEngine {
           const startTime = Date.now();
           logger.debug(`Task [${task.id}] started (capability: ${task.capability})`);
 
+          this.eventBus?.emit("task:start", {
+            runId: context.runId,
+            agentId: context.agentId,
+            taskId: task.id,
+            capability: task.capability,
+            input: task.input,
+            timestamp: startTime,
+          });
+
           try {
             const result = await this.capabilityExecutor.execute(
               {
@@ -67,10 +78,28 @@ export class ExecutionEngine {
 
             if (result.success) {
               logger.info(`Task [${task.id}] completed successfully in ${durationMs}ms`);
+              this.eventBus?.emit("task:complete", {
+                runId: context.runId,
+                agentId: context.agentId,
+                taskId: task.id,
+                capability: task.capability,
+                output: result.output,
+                durationMs,
+                timestamp: Date.now(),
+              });
             } else {
               logger.warn(
                 `Task [${task.id}] failed in ${durationMs}ms: ${result.error ?? "Unknown error"}`,
               );
+              this.eventBus?.emit("task:failed", {
+                runId: context.runId,
+                agentId: context.agentId,
+                taskId: task.id,
+                capability: task.capability,
+                error: result.error ?? "Unknown error",
+                durationMs,
+                timestamp: Date.now(),
+              });
             }
 
             return {
@@ -87,6 +116,16 @@ export class ExecutionEngine {
               `Task [${task.id}] encountered exception in ${durationMs}ms: ${errorMessage}`,
             );
 
+            this.eventBus?.emit("task:failed", {
+              runId: context.runId,
+              agentId: context.agentId,
+              taskId: task.id,
+              capability: task.capability,
+              error: errorMessage,
+              durationMs,
+              timestamp: Date.now(),
+            });
+
             return {
               taskId: task.id,
               status: "failed" as const,
@@ -98,12 +137,6 @@ export class ExecutionEngine {
 
       results.push(...batch);
 
-      /*
-       * Stop if a task failed.
-       *
-       * Later we'll make this configurable
-       * with retry/failure policies.
-       */
       if (batch.some((result) => result.status === "failed")) {
         logger.warn(`Batch #${batchNumber} had failures; stopping remaining task execution`);
         break;

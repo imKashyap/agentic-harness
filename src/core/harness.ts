@@ -14,6 +14,8 @@ import { ToolCapabilityExecutor } from "../capabilities/tools/tool-capability-ex
 import { ToolExecutor } from "../capabilities/tools/tool-executor.js";
 import { ToolLoader } from "../capabilities/tools/tool-loader.js";
 import { AgentNotFoundError } from "../errors/orchestration-errors.js";
+import { HarnessEventBus } from "../events/event-bus.js";
+import { HarnessEvent } from "../events/types.js";
 import { LLMFactory } from "../llm/llm-factory.js";
 import { InMemoryLongTermStore } from "../memory/long-term/in-memory-long-term-store.js";
 import { MemoryManager } from "../memory/long-term/memory-manager.js";
@@ -56,6 +58,7 @@ export interface HarnessOptions {
   sessionStore?: SessionStore;
   longTermMemoryStore?: LongTermMemoryStore;
   contextCompactor?: ContextCompactor;
+  eventBus?: HarnessEventBus;
 }
 
 export interface RunAgentOptions {
@@ -74,6 +77,7 @@ export class AgentHarness {
     public readonly promptProvider: PromptProvider,
     public readonly sessionStore: SessionStore,
     public readonly memoryManager: MemoryManager,
+    public readonly eventBus: HarnessEventBus,
   ) {}
 
   static async init(options: HarnessOptions = {}): Promise<AgentHarness> {
@@ -88,6 +92,7 @@ export class AgentHarness {
     const capabilityRegistry = new CapabilityRegistry();
     const agentRegistry = new AgentRegistry();
     const capabilityResolver = new CapabilityResolver();
+    const eventBus = options.eventBus ?? new HarnessEventBus();
 
     // ─────────────────────────────────────
     // Memory Subsystem (Short & Long Term)
@@ -128,7 +133,7 @@ export class AgentHarness {
     );
 
     const scheduler = new Scheduler();
-    const executionEngine = new ExecutionEngine(capabilityDispatcher, scheduler);
+    const executionEngine = new ExecutionEngine(capabilityDispatcher, scheduler, eventBus);
 
     // Adaptive Planner setup (Fast-path for single/zero tool calls, LLM for multi-call DAGs)
     const staticGenerator = new StaticPlanGenerator();
@@ -153,6 +158,7 @@ export class AgentHarness {
       capabilityResolver,
       memoryManager,
       contextCompactor,
+      eventBus,
     );
 
     const harness = new AgentHarness(
@@ -164,6 +170,7 @@ export class AgentHarness {
       promptProvider,
       sessionStore,
       memoryManager,
+      eventBus,
     );
 
     // Load available agent configs
@@ -182,7 +189,7 @@ export class AgentHarness {
       logger.debug("No researcher agent config found in agents directory");
     }
 
-    logger.info("AgentHarness initialized successfully with memory subsystems");
+    logger.info("AgentHarness initialized successfully with memory and event bus");
     return harness;
   }
 
@@ -238,6 +245,10 @@ export class AgentHarness {
   async recall(query: string, options: MemorySearchOptions = {}): Promise<MemorySearchResult[]> {
     return this.memoryManager.recall(query, options);
   }
+
+  // ─────────────────────────────────────
+  // Execution & Streaming APIs
+  // ─────────────────────────────────────
 
   async runAgent(
     agentId: string,
@@ -306,5 +317,33 @@ export class AgentHarness {
     }
 
     return result;
+  }
+
+  async *runAgentStream(
+    agentId: string,
+    input: string | AgentRunInput,
+    options: RunAgentOptions = {},
+  ): AsyncIterable<HarnessEvent> {
+    const runId = options.context?.runId ?? crypto.randomUUID();
+    const runContext: ExecutionContext = {
+      runId,
+      agentId,
+      parentRunId: options.context?.parentRunId,
+      parentAgentId: options.context?.parentAgentId,
+      metadata: options.context?.metadata,
+    };
+
+    logger.info(`Starting streaming run for agent '${agentId}' (runId: ${runId})`);
+
+    const stream = this.eventBus.subscribeToRun(runId);
+
+    // Execute run in background; events will be streamed through eventBus
+    this.runAgent(agentId, input, { ...options, context: runContext }).catch((err) => {
+      logger.debug(`Background stream run error handled via eventBus: ${String(err)}`);
+    });
+
+    for await (const event of stream) {
+      yield event;
+    }
   }
 }

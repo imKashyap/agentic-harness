@@ -41,6 +41,14 @@ export interface LLMResponse {
   toolCalls?: ToolCall[];
 }
 
+export interface LLMStreamChunk {
+  type: "content" | "tool_call" | "thought";
+  delta?: string;
+  toolCallDelta?: Partial<ToolCall>;
+  fullResponse?: LLMResponse;
+}
+
 export interface LLM {
   chat(request: LLMRequest): Promise<LLMResponse>;
+  chatStream?(request: LLMRequest): AsyncIterable<LLMStreamChunk>;
 }

@@ -1,5 +1,6 @@
 import { CapabilityRegistry } from "../../capabilities/capability-registry.js";
 import { CapabilityResolver } from "../../capabilities/resolution/capability-resolver.js";
+import { HarnessEventBus } from "../../events/event-bus.js";
 import { LLMFactory } from "../../llm/llm-factory.js";
 import { MemoryManager } from "../../memory/long-term/memory-manager.js";
 import { ContextCompactor } from "../../memory/session/context-compactor.js";
@@ -22,6 +23,7 @@ export class AgentFactory {
     capabilityResolver?: CapabilityResolver,
     private readonly memoryManager?: MemoryManager,
     private readonly contextCompactor?: ContextCompactor,
+    private readonly eventBus?: HarnessEventBus,
   ) {
     this.capabilityResolver = capabilityResolver ?? new CapabilityResolver();
   }
@@ -40,6 +42,7 @@ export class AgentFactory {
       this.capabilityResolver,
       this.memoryManager,
       this.contextCompactor,
+      this.eventBus,
     );
     return new Agent(config, this.promptProvider, runner);
   }
