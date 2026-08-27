@@ -1,12 +1,12 @@
 # Architecture
 
-This document describes the design, folder organization, and runtime flow of the agentic harness.
+This document describes the design, folder organization, and runtime flow of the **Agentic Harness**.
 
 ---
 
 ## 1. Overall System Architecture
 
-The harness is organized into decoupled layers: **facade/bootstrap**, **core orchestration & agent runtime**, **memory subsystem**, **capabilities (tools, skills, sub-agents)**, and **LLM adapters**.
+The harness is organized into decoupled layers: **facade/bootstrap**, **core orchestration & agent runtime**, **memory subsystem**, **capabilities (tools, skills, sub-agents)**, **event streaming**, **HTTP/SSE server**, **human-in-the-loop gates**, and **LLM adapters**.
 
 ```
 src/
@@ -16,6 +16,21 @@ src/
 │   ├── orchestration/         # DAG DependencyGraph, ExecutionEngine, Scheduler, Planner, PlanValidator
 │   ├── harness.ts             # Server-ready AgentHarness facade container
 │   └── index.ts               # Core barrel exports
+├── events/
+│   ├── event-bus.ts           # Typed pub/sub event bus & async iterable stream runners
+│   ├── types.ts               # HarnessEventMap, HarnessEventType, payloads
+│   └── index.ts               # Events barrel exports
+├── server/
+│   ├── app.ts                 # Hono web app with CORS, logging, and error handling
+│   ├── server.ts              # Node.js HTTP server adapter
+│   ├── start.ts               # Standalone server startup entrypoint
+│   ├── routes/                # REST & SSE endpoints (agents, sessions, capabilities, runs)
+│   └── index.ts               # Server barrel exports
+├── hitl/
+│   ├── approval-manager.ts    # Deferred approval resolution & timeout manager
+│   ├── checkpoint-store.ts    # InMemory & FileCheckpointStore
+│   ├── types.ts               # Checkpoint, ApprovalDecision, ApprovalStatus
+│   └── index.ts               # HITL barrel exports
 ├── memory/
 │   ├── session/               # Short-Term SessionStore (InMemory, FileStore) & ContextCompactor
 │   ├── long-term/             # LongTermMemoryStore, Vector Embeddings & Cosine Similarity, MemoryManager
@@ -34,25 +49,25 @@ src/
 │   └── index.ts               # Capabilities barrel exports
 ├── errors/                    # Domain-specific typed error classes (HarnessError hierarchy)
 ├── llm/
-│   ├── types.ts               # LLM, Message, ToolCall, LLMRequest, LLMResponse, definitions
+│   ├── types.ts               # LLM, Message, ToolCall, LLMRequest, LLMResponse, streaming chunks
 │   ├── llm-factory.ts         # Provider adapter factory
-│   ├── adapters/              # OpenRouterLLM, MockLLM
+│   ├── adapters/              # OpenRouterLLM (SSE stream parser), MockLLM
 │   └── index.ts               # LLM barrel exports
 ├── prompts/                   # PromptProvider, FilePromptProvider
-├── utils/                     # Structured Logger
+├── utils/                     # Structured Pino Logger & pino-pretty
 └── index.ts                   # CLI / application entry point
 ```
 
 ---
 
-## 2. Server-Ready `AgentHarness` Facade with Memory
+## 2. Server-Ready `AgentHarness` Facade
 
-The `AgentHarness` container class (`src/core/harness.ts`) encapsulates bootstrap, discovery, memory stores, and runtime execution. It is designed to be embedded cleanly into standalone scripts, CLI commands, or future HTTP/REST/gRPC API servers:
+The `AgentHarness` container class (`src/core/harness.ts`) encapsulates bootstrap, discovery, memory stores, event streaming, HITL approval gates, and runtime execution. It is designed to be embedded cleanly into CLI tools, background workers, or HTTP/REST/SSE microservices:
 
 ```typescript
 import { AgentHarness } from "./core/harness.js";
 
-// Initialize harness (with SessionStore & LongTermMemoryStore out-of-the-box)
+// Initialize harness (with SessionStore, MemoryManager, EventBus & HITL out-of-the-box)
 const harness = await AgentHarness.init({
   agentsDir: "./agents",
   skillsDir: "./skills",
@@ -60,7 +75,7 @@ const harness = await AgentHarness.init({
 });
 
 // Multi-Turn Execution: pass sessionId to maintain conversational memory
-const turn1 = await harness.runAgent(
+const result = await harness.runAgent(
   "default-agent",
   "My name is Alice and I work with TypeScript",
   {
@@ -68,15 +83,12 @@ const turn1 = await harness.runAgent(
   },
 );
 
-const turn2 = await harness.runAgent("default-agent", "What language do I work with?", {
-  sessionId: "user-session-1",
-});
-
-// Long-Term Memory Facade APIs
-await harness.remember("Production DB is PostgreSQL 16", { agentId: "default-agent" });
-const memories = await harness.recall("What database is in production?", {
-  agentId: "default-agent",
-});
+// Real-Time Token & Event Streaming
+for await (const event of harness.runAgentStream("default-agent", "Explain event streaming")) {
+  if (event.type === "token:delta") {
+    process.stdout.write(event.payload.delta);
+  }
+}
 ```
 
 ---
@@ -113,3 +125,45 @@ const memories = await harness.recall("What database is in production?", {
 - **Dynamic Path ($> 1$ tool calls)**: `AdaptivePlanGenerator` routes multi-tool batches to `LLMPlanGenerator` with capability metadata to resolve data dependencies into a topological DAG.
 - **Resilience Fallback**: If the Planner LLM encounters errors or malformed JSON, it automatically falls back to static parallel execution to ensure execution continuity.
 - **DAG Execution**: `ExecutionEngine` + `Scheduler` execute independent tasks concurrently via `Promise.all()`.
+
+---
+
+## 6. Real-Time Event Bus & Token Streaming
+
+- **`HarnessEventBus` (`src/events/event-bus.ts`)**:
+  - Centralized, strongly-typed pub/sub event emitter.
+  - Emits fine-grained lifecycle events: `run:start`, `run:end`, `token:delta`, `thought:delta`, `tool:call`, `task:start`, `task:complete`, `subagent:delegated`, `hitl:approval_required`, `memory:recalled`.
+- **Streaming Adapters (`src/llm/adapters/openrouter/`)**:
+  - Full SSE chunk parser yielding live token deltas, reasoning content (`thought:delta`), and tool call arguments.
+
+---
+
+## 7. HTTP & SSE API Server Layer (Hono)
+
+- Built with **Hono** and `@hono/node-server` for low-overhead, standards-compliant routing.
+- **Endpoints**:
+  - `GET /health`: Liveness and uptime check.
+  - `GET /v1/agents`: List all registered agents.
+  - `POST /v1/agents/:id/runs`: Run agent synchronously (`JSON`) or stream live events via SSE (`Accept: text/event-stream` / `stream: true`).
+  - `GET /v1/sessions` & `GET /v1/sessions/:id`: Manage conversational session histories.
+  - `POST /v1/memory` & `POST /v1/memory/search`: Semantic memory ingestion and search.
+  - `GET /v1/approvals`: Inspect pending Human-in-the-Loop checkpoints.
+  - `POST /v1/runs/:id/approve` & `POST /v1/runs/:id/reject`: Approve or reject gated tool executions.
+
+---
+
+## 8. Human-in-the-Loop (HITL) & Approval Gates
+
+- **`Tool.requiresApproval`**: Sensitive tools declare approval policies (`boolean` or dynamic predicate `(input, context) => boolean`).
+- **`ApprovalManager` (`src/hitl/approval-manager.ts`)**:
+  - Intercepts sensitive task execution inside `ExecutionEngine`.
+  - Emits `hitl:approval_required` and creates a pending `Checkpoint`.
+  - Non-blocking deferred Promise resolution: `harness.approveRun(runId)` resumes task immediately; `harness.rejectRun(runId)` aborts task cleanly.
+
+---
+
+## 9. Structured Logging & Observability
+
+- Integrated **Pino** (`src/utils/logger.ts`) with child loggers for contextual tracing.
+- Outputs human-readable colorized logs in development via `pino-pretty` and high-throughput JSON in production.
+- Controlled via `LOG_LEVEL` environment variable (`debug`, `info`, `warn`, `error`, `silent`).

@@ -388,6 +388,12 @@ export class AgentHarness {
     // Execute run in background; events will be streamed through eventBus
     this.runAgent(agentId, input, { ...options, context: runContext }).catch((err) => {
       logger.debug(`Background stream run error handled via eventBus: ${String(err)}`);
+      this.eventBus.emit("run:error", {
+        runId,
+        agentId,
+        error: err instanceof Error ? err.message : String(err),
+        timestamp: Date.now(),
+      });
     });
 
     for await (const event of stream) {
