@@ -333,14 +333,24 @@ npm run build
 
 ## 🐞 VS Code Debugging
 
-Pre-configured launch configurations are included in [`.vscode/launch.json`](./.vscode/launch.json):
+### 1. Launch Configurations (`.vscode/launch.json`)
 
-1. **`Debug: API Server`**: Start the Hono server (`apps/api/server.ts`) with full source mapping and breakpoints enabled.
-2. **`Debug: Current Test File`**: Debug the active test file directly in VS Code.
-3. **`Debug: Integration Tests (API)`**: Run and debug the API server integration suite (`tests/integration/api.test.ts`).
-4. **`Debug: Guardrails & Context Unit Tests`**: Debug input/output guardrails, policy engine, token managers, and memory suites.
-5. **`Debug: Orchestration Tests`**: Debug DAG dependency graphs, cycle detection, and parallel execution.
-6. **`Debug: All Test Suites`**: Run all test suites under the debugger.
+- **`Debug: API Server`**: Start the Hono server (`apps/api/server.ts`) with full source mapping and breakpoints enabled.
+- **`Debug: Current Test File`**: Debug the active test file directly in VS Code.
+- **`Debug: Integration Tests (API)`**: Run and debug the API server integration suite (`tests/integration/api.test.ts`).
+- **`Debug: Guardrails & Context Tests`**: Debug input/output guardrails, policy engine, token managers, and memory suites.
+- **`Debug: Orchestration Tests`**: Debug DAG dependency graphs, cycle detection, and parallel execution.
+- **`Debug: All Test Suites`**: Run all test suites under the debugger.
+
+### 2. 1-Click Scenario Execution (`requests.http` & `.vscode/tasks.json`)
+
+When debugging the running server:
+
+1. Start the debugger with **`Debug: API Server`** (`F5`).
+2. Place breakpoints in route handlers (`apps/api/routes/`), agent runner (`src/core/agent/`), orchestrator (`src/core/orchestration/`), or memory (`src/context/`).
+3. Send requests via:
+   - **`requests.http`**: Click **"Send Request"** directly above any scenario in VS Code.
+   - **VS Code Tasks**: Run `Cmd+Shift+P` / `Ctrl+Shift+P` $\rightarrow$ `Tasks: Run Task` $\rightarrow$ `Scenario: Tool Calling`, `Scenario: Agent Delegation`, `Scenario: Search Memory`, or `Scenario: Streaming Tokens`.
 
 ---
 

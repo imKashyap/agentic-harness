@@ -1,0 +1,94 @@
+@baseUrl = http://localhost:3000
+
+### 1. Health Check & Live Metrics
+GET {{baseUrl}}/health
+
+### 2. Default Agent Run (Direct Prompt)
+POST {{baseUrl}}/v1/agents/default-agent/runs
+Content-Type: application/json
+
+{
+  "message": "Hello! Introduce yourself and list what skills and tools you have access to."
+}
+
+### 3. Tool Calling Scenario (Calculator Tool)
+POST {{baseUrl}}/v1/agents/default-agent/runs
+Content-Type: application/json
+
+{
+  "message": "Calculate (128 * 45) + 360 using the calculator tool."
+}
+
+### 4. Agent Delegation Scenario (Sub-Agent Execution)
+POST {{baseUrl}}/v1/agents/default-agent/runs
+Content-Type: application/json
+
+{
+  "message": "Please delegate research on modern agent architectures to the researcher agent and summarize the findings."
+}
+
+### 5. Multi-Turn Conversational Session (Turn 1: Ingest Context)
+POST {{baseUrl}}/v1/agents/default-agent/runs
+Content-Type: application/json
+
+{
+  "sessionId": "debug-session-101",
+  "message": "My name is Alice, I am a lead engineer working with TypeScript and distributed systems."
+}
+
+### 6. Multi-Turn Conversational Session (Turn 2: Context Continuity)
+POST {{baseUrl}}/v1/agents/default-agent/runs
+Content-Type: application/json
+
+{
+  "sessionId": "debug-session-101",
+  "message": "What is my name and what do I specialize in?"
+}
+
+### 7. Inspect Session Message History
+GET {{baseUrl}}/v1/sessions/debug-session-101
+
+### 8. Long-Term Memory (Store Fact)
+POST {{baseUrl}}/v1/memory
+Content-Type: application/json
+
+{
+  "agentId": "default-agent",
+  "fact": "The production database cluster was upgraded to PostgreSQL 16.2 in us-west-2.",
+  "tags": ["database", "infrastructure", "production"]
+}
+
+### 9. Long-Term Memory (Semantic Search)
+POST {{baseUrl}}/v1/memory/search
+Content-Type: application/json
+
+{
+  "agentId": "default-agent",
+  "query": "What version of PostgreSQL are we running in prod?",
+  "limit": 3
+}
+
+### 10. Agent Run with Semantic Memory Recall Injected
+POST {{baseUrl}}/v1/agents/default-agent/runs
+Content-Type: application/json
+
+{
+  "message": "What version of PostgreSQL is deployed in production?",
+  "enableLongTermMemory": true
+}
+
+### 11. Real-Time Token Streaming over Server-Sent Events (SSE)
+POST {{baseUrl}}/v1/agents/default-agent/runs
+Content-Type: application/json
+Accept: text/event-stream
+
+{
+  "message": "Explain the advantages of DAG-based orchestration over linear chains in 3 bullet points.",
+  "stream": true
+}
+
+### 12. List Pending Human-in-the-Loop (HITL) Approvals
+GET {{baseUrl}}/v1/approvals
+
+### 13. Delete Session
+DELETE {{baseUrl}}/v1/sessions/debug-session-101

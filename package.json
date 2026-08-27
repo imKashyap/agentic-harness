@@ -15,9 +15,9 @@
     "typecheck": "tsc --noEmit --project tsconfig.json",
     "test": "tsx --test 'src/**/*.test.ts' 'tests/**/*.test.ts'",
     "lint": "eslint .",
-    "format": "prettier --write 'src/**/*.ts' 'apps/**/*.ts' 'tests/**/*.ts' 'scripts/**/*.ts' 'docs/**/*.md' 'agents/**/*.json' 'skills/**/*' 'prompts/**/*' 'README.md'",
+    "format": "prettier --write 'src/**/*.ts' 'apps/**/*.ts' 'tests/**/*.ts' 'docs/**/*.md' 'agents/**/*.json' 'skills/**/*' 'prompts/**/*' 'README.md'",
     "fix": "npm run lint -- --fix && npm run format",
-    "verify": "npm run typecheck && npm run test && npm run lint && prettier --check 'src/**/*.ts' 'apps/**/*.ts' 'tests/**/*.ts' 'scripts/**/*.ts'",
+    "verify": "npm run typecheck && npm run test && npm run lint && prettier --check 'src/**/*.ts' 'apps/**/*.ts' 'tests/**/*.ts'",
     "audit": "npm audit --production",
     "prepare": "husky install"
   },
