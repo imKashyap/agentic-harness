@@ -1,5 +1,8 @@
+import { CapabilityRegistry } from "../../capabilities/capability-registry.js";
 import { CapabilityExecutor } from "../../capabilities/dispatch/capability-executor.js";
+import { Tool } from "../../capabilities/tools/tool.js";
 import { HarnessEventBus } from "../../events/event-bus.js";
+import { ApprovalManager } from "../../hitl/approval-manager.js";
 import { createLogger } from "../../utils/logger.js";
 import { ExecutionContext } from "../execution/execution-context.js";
 import { ExecutionResult } from "../execution/execution-result.js";
@@ -14,6 +17,8 @@ export class ExecutionEngine {
     private readonly capabilityExecutor: CapabilityExecutor,
     private readonly scheduler: Scheduler,
     private readonly eventBus?: HarnessEventBus,
+    private readonly capabilityRegistry?: CapabilityRegistry,
+    private readonly approvalManager?: ApprovalManager,
   ) {}
 
   async execute(tasks: Task[], context: ExecutionContext): Promise<ExecutionResult[]> {
@@ -62,6 +67,59 @@ export class ExecutionEngine {
             input: task.input,
             timestamp: startTime,
           });
+
+          // Check for Human-in-the-Loop (HITL) approval requirement
+          if (this.capabilityRegistry && this.approvalManager) {
+            let requiresApproval = false;
+            try {
+              if (this.capabilityRegistry.has(task.capability)) {
+                const cap = this.capabilityRegistry.get(task.capability);
+                if (cap.type === "tool") {
+                  const tool = cap as Tool;
+                  if (typeof tool.requiresApproval === "function") {
+                    requiresApproval = tool.requiresApproval(task.input, context);
+                  } else if (tool.requiresApproval === true) {
+                    requiresApproval = true;
+                  }
+                }
+              }
+            } catch {
+              // ignore lookup error
+            }
+
+            if (requiresApproval) {
+              logger.info(`Task [${task.id}] requires human approval before execution`);
+              const decision = await this.approvalManager.requestApproval(
+                context.runId,
+                context.agentId,
+                task.id,
+                task.capability,
+                task.input,
+              );
+
+              if (decision.status === "rejected") {
+                const durationMs = Date.now() - startTime;
+                const errorMsg = decision.reason ?? "Task execution was rejected by human approval";
+                task.status = "failed";
+
+                this.eventBus?.emit("task:failed", {
+                  runId: context.runId,
+                  agentId: context.agentId,
+                  taskId: task.id,
+                  capability: task.capability,
+                  error: errorMsg,
+                  durationMs,
+                  timestamp: Date.now(),
+                });
+
+                return {
+                  taskId: task.id,
+                  status: "failed",
+                  error: errorMsg,
+                };
+              }
+            }
+          }
 
           try {
             const result = await this.capabilityExecutor.execute(

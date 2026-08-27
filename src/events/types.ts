@@ -16,7 +16,10 @@ export type HarnessEventType =
   | "subagent:delegated"
   | "subagent:completed"
   | "memory:recalled"
-  | "memory:stored";
+  | "memory:stored"
+  | "hitl:approval_required"
+  | "hitl:approved"
+  | "hitl:rejected";
 
 export interface BaseEventPayload {
   runId: string;
@@ -104,6 +107,27 @@ export interface MemoryStoredPayload extends BaseEventPayload {
   content: string;
 }
 
+export interface HitlApprovalRequiredPayload extends BaseEventPayload {
+  taskId: string;
+  capability: string;
+  input: unknown;
+  approvalToken: string;
+}
+
+export interface HitlApprovedPayload extends BaseEventPayload {
+  taskId: string;
+  capability: string;
+  approvalToken: string;
+  reason?: string;
+}
+
+export interface HitlRejectedPayload extends BaseEventPayload {
+  taskId: string;
+  capability: string;
+  approvalToken: string;
+  reason?: string;
+}
+
 export interface HarnessEventMap {
   "run:start": RunStartPayload;
   "run:end": RunEndPayload;
@@ -120,6 +144,9 @@ export interface HarnessEventMap {
   "subagent:completed": SubagentCompletedPayload;
   "memory:recalled": MemoryRecalledPayload;
   "memory:stored": MemoryStoredPayload;
+  "hitl:approval_required": HitlApprovalRequiredPayload;
+  "hitl:approved": HitlApprovedPayload;
+  "hitl:rejected": HitlRejectedPayload;
 }
 
 export interface HarnessEvent<T extends HarnessEventType = HarnessEventType> {

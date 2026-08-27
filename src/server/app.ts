@@ -6,6 +6,7 @@ import { HarnessError } from "../errors/harness-error.js";
 import { createLogger } from "../utils/logger.js";
 import { createAgentRoutes } from "./routes/agents.js";
 import { createCapabilityRoutes } from "./routes/capabilities.js";
+import { createRunRoutes } from "./routes/runs.js";
 import { createSessionRoutes } from "./routes/sessions.js";
 
 const logger = createLogger("HttpServer");
@@ -41,6 +42,7 @@ export function createApp(harness: AgentHarness): Hono {
   app.route("/v1/sessions", createSessionRoutes(harness));
   app.route("/v1/capabilities", createCapabilityRoutes(harness));
   app.route("/v1", createCapabilityRoutes(harness)); // support /v1/memory directly
+  app.route("/v1", createRunRoutes(harness)); // support /v1/approvals and /v1/runs/:id/approve
 
   // Global error handler
   app.onError((err, c) => {

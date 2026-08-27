@@ -16,6 +16,9 @@ import { ToolLoader } from "../capabilities/tools/tool-loader.js";
 import { AgentNotFoundError } from "../errors/orchestration-errors.js";
 import { HarnessEventBus } from "../events/event-bus.js";
 import { HarnessEvent } from "../events/types.js";
+import { ApprovalManager } from "../hitl/approval-manager.js";
+import { InMemoryCheckpointStore } from "../hitl/checkpoint-store.js";
+import { Checkpoint, CheckpointStore } from "../hitl/types.js";
 import { LLMFactory } from "../llm/llm-factory.js";
 import { InMemoryLongTermStore } from "../memory/long-term/in-memory-long-term-store.js";
 import { MemoryManager } from "../memory/long-term/memory-manager.js";
@@ -59,6 +62,8 @@ export interface HarnessOptions {
   longTermMemoryStore?: LongTermMemoryStore;
   contextCompactor?: ContextCompactor;
   eventBus?: HarnessEventBus;
+  checkpointStore?: CheckpointStore;
+  approvalManager?: ApprovalManager;
 }
 
 export interface RunAgentOptions {
@@ -78,6 +83,8 @@ export class AgentHarness {
     public readonly sessionStore: SessionStore,
     public readonly memoryManager: MemoryManager,
     public readonly eventBus: HarnessEventBus,
+    public readonly checkpointStore: CheckpointStore,
+    public readonly approvalManager: ApprovalManager,
   ) {}
 
   static async init(options: HarnessOptions = {}): Promise<AgentHarness> {
@@ -93,6 +100,13 @@ export class AgentHarness {
     const agentRegistry = new AgentRegistry();
     const capabilityResolver = new CapabilityResolver();
     const eventBus = options.eventBus ?? new HarnessEventBus();
+
+    // ─────────────────────────────────────
+    // HITL Subsystem (Checkpoints & Approvals)
+    // ─────────────────────────────────────
+    const checkpointStore = options.checkpointStore ?? new InMemoryCheckpointStore();
+    const approvalManager =
+      options.approvalManager ?? new ApprovalManager(checkpointStore, eventBus);
 
     // ─────────────────────────────────────
     // Memory Subsystem (Short & Long Term)
@@ -133,7 +147,13 @@ export class AgentHarness {
     );
 
     const scheduler = new Scheduler();
-    const executionEngine = new ExecutionEngine(capabilityDispatcher, scheduler, eventBus);
+    const executionEngine = new ExecutionEngine(
+      capabilityDispatcher,
+      scheduler,
+      eventBus,
+      capabilityRegistry,
+      approvalManager,
+    );
 
     // Adaptive Planner setup (Fast-path for single/zero tool calls, LLM for multi-call DAGs)
     const staticGenerator = new StaticPlanGenerator();
@@ -171,6 +191,8 @@ export class AgentHarness {
       sessionStore,
       memoryManager,
       eventBus,
+      checkpointStore,
+      approvalManager,
     );
 
     // Load available agent configs
@@ -189,7 +211,7 @@ export class AgentHarness {
       logger.debug("No researcher agent config found in agents directory");
     }
 
-    logger.info("AgentHarness initialized successfully with memory and event bus");
+    logger.info("AgentHarness initialized successfully with memory, event bus, and HITL gates");
     return harness;
   }
 
@@ -244,6 +266,32 @@ export class AgentHarness {
 
   async recall(query: string, options: MemorySearchOptions = {}): Promise<MemorySearchResult[]> {
     return this.memoryManager.recall(query, options);
+  }
+
+  // ─────────────────────────────────────
+  // Human-in-the-Loop (HITL) APIs
+  // ─────────────────────────────────────
+
+  async approveRun(
+    idOrRunId: string,
+    reason?: string,
+  ): Promise<{ success: boolean; checkpoint: Checkpoint | null }> {
+    return this.approvalManager.resolveDecision(idOrRunId, { status: "approved", reason });
+  }
+
+  async rejectRun(
+    idOrRunId: string,
+    reason?: string,
+  ): Promise<{ success: boolean; checkpoint: Checkpoint | null }> {
+    return this.approvalManager.resolveDecision(idOrRunId, { status: "rejected", reason });
+  }
+
+  async listPendingApprovals(): Promise<Checkpoint[]> {
+    return this.approvalManager.listPending();
+  }
+
+  async getCheckpoint(id: string): Promise<Checkpoint | null> {
+    return this.checkpointStore.get(id);
   }
 
   // ─────────────────────────────────────
