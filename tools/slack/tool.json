@@ -1,0 +1,14 @@
+{
+  "id": "tool.slack",
+  "name": "Slack Tool",
+  "description": "Sends messages and alerts to Slack channels",
+  "type": "tool",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "channel": { "type": "string" },
+      "text": { "type": "string" }
+    },
+    "required": ["channel", "text"]
+  }
+}

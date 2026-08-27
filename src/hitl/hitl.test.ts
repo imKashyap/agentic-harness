@@ -4,6 +4,7 @@ import assert from "node:assert";
 import { promises as fs } from "node:fs";
 import { describe, it } from "node:test";
 
+import { createApp } from "../../apps/api/server.js";
 import { SubAgentExecutor } from "../capabilities/agents/sub-agent-executor.js";
 import { CapabilityRegistry } from "../capabilities/capability-registry.js";
 import { CapabilityDispatcher } from "../capabilities/dispatch/capability-dispatcher.js";
@@ -23,7 +24,6 @@ import { Scheduler } from "../core/orchestration/scheduler.js";
 import { StaticPlanGenerator } from "../core/orchestration/static-plan-generator.js";
 import { LLM, LLMRequest, LLMResponse } from "../llm/types.js";
 import { PromptProvider } from "../prompts/prompt-provider.js";
-import { createApp } from "../server/app.js";
 import { ApprovalManager } from "./approval-manager.js";
 import { FileCheckpointStore, InMemoryCheckpointStore } from "./checkpoint-store.js";
 

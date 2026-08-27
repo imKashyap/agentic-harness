@@ -1,0 +1,15 @@
+{
+  "id": "tool.github",
+  "name": "GitHub Tool",
+  "description": "Inspects repositories, creates pull requests, and views issues",
+  "type": "tool",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "action": { "type": "string", "enum": ["get_repo", "create_pr", "list_issues"] },
+      "repo": { "type": "string" },
+      "params": { "type": "object" }
+    },
+    "required": ["action", "repo"]
+  }
+}

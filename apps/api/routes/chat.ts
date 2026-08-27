@@ -1,15 +1,15 @@
 import { Hono } from "hono";
 
-import { AgentHarness } from "../../core/harness.js";
-import { createLogger } from "../../utils/logger.js";
+import { AgentHarness } from "../../../src/core/harness.js";
+import { createLogger } from "../../../src/observability/logging.js";
 
-const logger = createLogger("SessionRoutes");
+const logger = createLogger("ChatRoutes");
 
-export function createSessionRoutes(harness: AgentHarness): Hono {
+export function createChatRoutes(harness: AgentHarness): Hono {
   const router = new Hono();
 
   // List sessions
-  router.get("/", async (c) => {
+  router.get("/sessions", async (c) => {
     const agentId = c.req.query("agentId");
     const sessions = await harness.listSessions(agentId);
     return c.json({
@@ -25,7 +25,7 @@ export function createSessionRoutes(harness: AgentHarness): Hono {
   });
 
   // Get session details
-  router.get("/:id", async (c) => {
+  router.get("/sessions/:id", async (c) => {
     const sessionId = c.req.param("id");
     const session = await harness.getSession(sessionId);
 
@@ -46,7 +46,7 @@ export function createSessionRoutes(harness: AgentHarness): Hono {
   });
 
   // Delete session
-  router.delete("/:id", async (c) => {
+  router.delete("/sessions/:id", async (c) => {
     const sessionId = c.req.param("id");
     const deleted = await harness.deleteSession(sessionId);
     logger.info(`Session delete requested for '${sessionId}' (deleted: ${deleted})`);

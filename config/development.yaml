@@ -1,0 +1,14 @@
+environment: development
+server:
+  port: 3000
+  cors:
+    origin: "*"
+logging:
+  level: debug
+  format: pretty
+storage:
+  state: in_memory
+  vector: in_memory
+llm:
+  defaultProvider: openrouter
+  defaultModel: google/gemini-2.0-flash-001

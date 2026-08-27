@@ -1,0 +1,7 @@
+{
+  "id": "skill.ticket-booking",
+  "name": "Ticket Booking",
+  "description": "Searches, books, and manages airline, train, and event tickets.",
+  "version": "1.0.0",
+  "tags": ["travel", "booking", "reservations"]
+}

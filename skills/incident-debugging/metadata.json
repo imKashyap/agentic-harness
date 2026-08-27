@@ -1,0 +1,7 @@
+{
+  "id": "skill.incident-debugging",
+  "name": "Incident Debugging",
+  "description": "Guides production incident triage, log analysis, and root-cause mitigation.",
+  "version": "1.0.0",
+  "tags": ["operations", "debugging", "sre"]
+}

@@ -1,0 +1,15 @@
+{
+  "id": "tool.jira",
+  "name": "Jira Tool",
+  "description": "Creates and transitions Jira project tickets",
+  "type": "tool",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "project": { "type": "string" },
+      "summary": { "type": "string" },
+      "issueType": { "type": "string" }
+    },
+    "required": ["project", "summary"]
+  }
+}

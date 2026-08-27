@@ -8,6 +8,10 @@ import { CapabilityDispatcher } from "../capabilities/dispatch/capability-dispat
 import { CapabilityResolver } from "../capabilities/resolution/capability-resolver.js";
 import { ToolCapabilityExecutor } from "../capabilities/tools/tool-capability-executor.js";
 import { ToolExecutor } from "../capabilities/tools/tool-executor.js";
+import { ContextManager } from "../context/context-manager.js";
+import { InMemoryLongTermStore, MemoryManager } from "../context/memory.js";
+import { PromptBuilder } from "../context/prompt-builder.js";
+import { TokenManager } from "../context/token-manager.js";
 import { AgentConfigLoader } from "../core/agent/agent-config-loader.js";
 import { AgentFactory } from "../core/agent/agent-factory.js";
 import { AgentRegistry } from "../core/agent/agent-registry.js";
@@ -20,14 +24,23 @@ import { PlanValidator } from "../core/orchestration/plan-validator.js";
 import { Planner } from "../core/orchestration/planner.js";
 import { Scheduler } from "../core/orchestration/scheduler.js";
 import { StaticPlanGenerator } from "../core/orchestration/static-plan-generator.js";
-import { HarnessEventBus } from "../events/event-bus.js";
+import { InMemoryStateStore } from "../core/state/state-store.js";
+import { InputGuard } from "../guardrails/input-guard.js";
+import { OutputGuard } from "../guardrails/output-guard.js";
+import { PolicyEngine } from "../guardrails/policy-engine.js";
+import { ToolGuard } from "../guardrails/tool-guard.js";
 import { ApprovalManager } from "../hitl/approval-manager.js";
 import { InMemoryCheckpointStore } from "../hitl/checkpoint-store.js";
+import { InMemoryMessageBus } from "../infrastructure/messaging/message-bus.js";
+import { MockPostgresStore } from "../infrastructure/postgres/postgres-store.js";
+import { InMemoryRedisStore } from "../infrastructure/redis/redis-store.js";
 import { LLMFactory } from "../llm/llm-factory.js";
-import { InMemoryLongTermStore } from "../memory/long-term/in-memory-long-term-store.js";
-import { MemoryManager } from "../memory/long-term/memory-manager.js";
+import { ModelRouter } from "../llm/model-router.js";
 import { ContextCompactor } from "../memory/session/context-compactor.js";
 import { InMemorySessionStore } from "../memory/session/in-memory-session-store.js";
+import { HarnessEventBus } from "../observability/events.js";
+import { MetricsService } from "../observability/metrics.js";
+import { TracingService } from "../observability/tracing.js";
 import { FilePromptProvider } from "../prompts/file-prompt-provider.js";
 import { TYPES } from "./types.js";
 
@@ -35,13 +48,23 @@ export function createHarnessContainer(options: HarnessOptions = {}): Container 
   const container = new Container({ defaultScope: "Singleton" });
 
   // ─────────────────────────────────────
-  // Event Bus
+  // Observability & Event Bus
   // ─────────────────────────────────────
   if (options.eventBus) {
     container.bind(TYPES.EventBus).toConstantValue(options.eventBus);
   } else {
     container.bind(TYPES.EventBus).to(HarnessEventBus).inSingletonScope();
   }
+  container.bind(TYPES.TracingService).to(TracingService).inSingletonScope();
+  container.bind(TYPES.MetricsService).to(MetricsService).inSingletonScope();
+
+  // ─────────────────────────────────────
+  // State & Infrastructure
+  // ─────────────────────────────────────
+  container.bind(TYPES.StateStore).to(InMemoryStateStore).inSingletonScope();
+  container.bind(TYPES.KeyValueStore).to(InMemoryRedisStore).inSingletonScope();
+  container.bind(TYPES.RelationalDb).to(MockPostgresStore).inSingletonScope();
+  container.bind(TYPES.MessageBus).to(InMemoryMessageBus).inSingletonScope();
 
   // ─────────────────────────────────────
   // Registries & Resolvers
@@ -51,8 +74,12 @@ export function createHarnessContainer(options: HarnessOptions = {}): Container 
   container.bind(TYPES.CapabilityResolver).to(CapabilityResolver).inSingletonScope();
 
   // ─────────────────────────────────────
-  // Memory (Session & Long-Term)
+  // Context & Memory
   // ─────────────────────────────────────
+  container.bind(TYPES.TokenManager).to(TokenManager).inSingletonScope();
+  container.bind(TYPES.ContextManager).to(ContextManager).inSingletonScope();
+  container.bind(TYPES.PromptBuilder).to(PromptBuilder).inSingletonScope();
+
   if (options.sessionStore) {
     container.bind(TYPES.SessionStore).toConstantValue(options.sessionStore);
   } else {
@@ -73,6 +100,14 @@ export function createHarnessContainer(options: HarnessOptions = {}): Container 
   container.bind(TYPES.MemoryManager).to(MemoryManager).inSingletonScope();
 
   // ─────────────────────────────────────
+  // Guardrails & Policy Engine
+  // ─────────────────────────────────────
+  container.bind(TYPES.InputGuard).to(InputGuard).inSingletonScope();
+  container.bind(TYPES.ToolGuard).to(ToolGuard).inSingletonScope();
+  container.bind(TYPES.OutputGuard).to(OutputGuard).inSingletonScope();
+  container.bind(TYPES.PolicyEngine).to(PolicyEngine).inSingletonScope();
+
+  // ─────────────────────────────────────
   // HITL (Checkpoint & Approval Manager)
   // ─────────────────────────────────────
   if (options.checkpointStore) {
@@ -86,6 +121,11 @@ export function createHarnessContainer(options: HarnessOptions = {}): Container 
   } else {
     container.bind(TYPES.ApprovalManager).to(ApprovalManager).inSingletonScope();
   }
+
+  // ─────────────────────────────────────
+  // LLM & Model Router
+  // ─────────────────────────────────────
+  container.bind(TYPES.ModelRouter).to(ModelRouter).inSingletonScope();
 
   // ─────────────────────────────────────
   // Prompts

@@ -5,7 +5,7 @@ import { LLM, LLMRequest, LLMResponse, LLMStreamChunk, Message, ToolCall } from 
 const logger = createLogger("OpenRouterLLM");
 
 export class OpenRouterLLM implements LLM {
-  constructor(private readonly model: string) {}
+  constructor(private readonly model: string = "google/gemini-2.0-flash-001") {}
 
   async chat(request: LLMRequest): Promise<LLMResponse> {
     const apiKey = process.env.OPENROUTER_API_KEY;

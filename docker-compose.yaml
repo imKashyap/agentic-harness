@@ -1,0 +1,39 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+      - LOG_LEVEL=info
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+    depends_on:
+      - redis
+      - postgres
+    volumes:
+      - ./data:/app/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: agentic_harness
+      POSTGRES_USER: harness
+      POSTGRES_PASSWORD: harness_password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  redis_data:
+  pgdata:

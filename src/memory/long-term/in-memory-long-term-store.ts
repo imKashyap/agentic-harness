@@ -48,7 +48,7 @@ export class InMemoryLongTermStore implements LongTermMemoryStore {
 
     const queryEmbedding = await this.embeddingProvider.embed(query);
     const limit = options.limit ?? 5;
-    const minScore = options.minScore ?? 0.1;
+    const minScore = options.minScore ?? 0.0;
 
     const allEntries = Array.from(this.memories.values());
 
@@ -80,8 +80,15 @@ export class InMemoryLongTermStore implements LongTermMemoryStore {
       // Keyword boost if query terms appear in content
       const queryLower = query.toLowerCase();
       const contentLower = entry.content.toLowerCase();
-      if (contentLower.includes(queryLower)) {
-        score = Math.min(1.0, score + 0.2);
+      const words = queryLower.split(/\s+/).filter((w) => w.length > 2);
+      let matchCount = 0;
+      for (const word of words) {
+        if (contentLower.includes(word)) {
+          matchCount++;
+        }
+      }
+      if (words.length > 0 && matchCount > 0) {
+        score = Math.min(1.0, score + 0.1 * (matchCount / words.length));
       }
 
       if (score >= minScore) {

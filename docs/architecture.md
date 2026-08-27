@@ -6,173 +6,119 @@ This document describes the design, folder organization, and runtime flow of the
 
 ## 1. Overall System Architecture
 
-The harness is organized into decoupled layers: **facade/bootstrap**, **core orchestration & agent runtime**, **memory subsystem**, **capabilities (tools, skills, sub-agents)**, **event streaming**, **HTTP/SSE server**, **human-in-the-loop gates**, and **LLM adapters**.
+The harness is organized into an enterprise modular layout: **application servers (`apps/api/`)**, **core agent & orchestration runtime (`src/core/`)**, **context & token management (`src/context/`)**, **guardrails & policy engine (`src/guardrails/`)**, **observability & telemetry (`src/observability/`)**, **infrastructure adapters (`src/infrastructure/`)**, **multi-provider LLMs (`src/llm/`)**, **capabilities (`src/capabilities/`)**, **domain packs (`skills/`, `tools/`, `agents/`)**, and **test suites (`tests/`)**.
 
 ```
-src/
-├── di/                    # Inversify IoC Container & Service Identifiers (TYPES)
-├── core/
-│   ├── agent/             # Agent, AgentRunner, AgentFactory, AgentRegistry, AgentConfig
-│   ├── execution/         # ExecutionContext (Runtime state & identifiers)
-│   ├── orchestration/     # DAG DependencyGraph, ExecutionEngine, Scheduler, Planner, PlanValidator
-│   ├── harness.ts         # Server-ready AgentHarness facade container
-│   └── index.ts           # Core barrel exports
-├── events/
-│   ├── event-bus.ts           # Typed pub/sub event bus & async iterable stream runners
-│   ├── types.ts               # HarnessEventMap, HarnessEventType, payloads
-│   └── index.ts               # Events barrel exports
-├── server/
-│   ├── app.ts                 # Hono web app with CORS, logging, and error handling
-│   ├── server.ts              # Node.js HTTP server adapter
-│   ├── start.ts               # Standalone server startup entrypoint
-│   ├── routes/                # REST & SSE endpoints (agents, sessions, capabilities, runs)
-│   └── index.ts               # Server barrel exports
-├── hitl/
-│   ├── approval-manager.ts    # Deferred approval resolution & timeout manager
-│   ├── checkpoint-store.ts    # InMemory & FileCheckpointStore
-│   ├── types.ts               # Checkpoint, ApprovalDecision, ApprovalStatus
-│   └── index.ts               # HITL barrel exports
-├── memory/
-│   ├── session/               # Short-Term SessionStore (InMemory, FileStore) & ContextCompactor
-│   ├── long-term/             # LongTermMemoryStore, Vector Embeddings & Cosine Similarity, MemoryManager
-│   ├── tools/                 # RememberFactTool (tool.remember_fact), SearchMemoryTool (tool.search_memory)
-│   ├── types.ts               # Session, MemoryEntry, MemorySearchResult, SessionRunOptions
-│   └── index.ts               # Memory barrel exports
-├── capabilities/
-│   ├── registry/              # CapabilityRegistry, CapabilityManager
-│   ├── loaders/               # SkillLoader, AgentCapabilityLoader, ToolLoader
-│   ├── tools/                 # Tool interface, ToolExecutor, ToolCapabilityExecutor, CalculatorTool
-│   ├── agents/                # AgentCapability, SubAgentExecutor
-│   ├── skills/                # Skill interface & loaders
-│   ├── resolution/            # CapabilityResolver (Agent scoping & prompt injection)
-│   ├── dispatch/              # CapabilityDispatcher, CapabilityExecutor interface
-│   ├── capability-utils.ts    # ID parsing and normalization
-│   └── index.ts               # Capabilities barrel exports
-├── errors/                    # Domain-specific typed error classes (HarnessError hierarchy)
-├── llm/
-│   ├── types.ts               # LLM, Message, ToolCall, LLMRequest, LLMResponse, streaming chunks
-│   ├── llm-factory.ts         # Provider adapter factory
-│   ├── adapters/              # OpenRouterLLM (SSE stream parser), MockLLM
-│   └── index.ts               # LLM barrel exports
-├── prompts/                   # PromptProvider, FilePromptProvider
-└── utils/                     # Structured Pino Logger & pino-pretty
+agentic-harness/
+│
+├── apps/
+│   └── api/
+│       ├── routes/
+│       │   ├── health.ts          # GET /health with live metrics
+│       │   ├── chat.ts            # GET/DELETE /v1/sessions
+│       │   ├── runs.ts            # POST /v1/agents/:id/runs (Sync & SSE) + Approvals
+│       │   └── memory.ts          # POST /v1/memory, POST /v1/memory/search, GET /v1/capabilities
+│       └── server.ts              # Hono web app & Node.js HTTP server bootstrap
+│
+├── src/
+│   ├── core/
+│   │   ├── agent/                 # Agent, AgentRunner, AgentFactory, AgentRegistry, AgentConfig
+│   │   ├── orchestration/         # DAG DependencyGraph, ExecutionEngine, Scheduler, Planner
+│   │   ├── execution/             # ExecutionContext, Task, TaskStatus, ExecutionResult
+│   │   ├── state/                 # ConversationState, RunState, StateStore (InMemory, File)
+│   │   └── harness.ts             # Server-ready AgentHarness facade container
+│   │
+│   ├── context/
+│   │   ├── token-manager.ts       # Token estimation & budget management
+│   │   ├── context-manager.ts     # Multi-turn window sliding & compaction
+│   │   ├── prompt-builder.ts      # Semantic prompt assembly with dynamic sections
+│   │   └── memory.ts              # Embeddings, Cosine similarity, MemoryManager
+│   │
+│   ├── guardrails/
+│   │   ├── input-guard.ts         # Prompt injection & security validation
+│   │   ├── tool-guard.ts          # Sensitive action & permission evaluator
+│   │   ├── output-guard.ts        # PII redaction & content sanitation
+│   │   └── policy-engine.ts       # Non-blocking HITL policy resolution
+│   │
+│   ├── observability/
+│   │   ├── logging.ts             # Structured Pino logger
+│   │   ├── tracing.ts             # Distributed trace spans & correlation IDs
+│   │   ├── metrics.ts             # Real-time latency, run counters, token accounting
+│   │   └── events.ts              # Typed HarnessEventBus pub/sub & SSE streaming
+│   │
+│   ├── infrastructure/
+│   │   ├── redis/                 # Key-value & cache store adapters
+│   │   ├── postgres/              # Relational & pgvector store adapters
+│   │   └── messaging/             # Pub/Sub message bus adapters
+│   │
+│   ├── llm/
+│   │   ├── openrouter.ts          # OpenRouter streaming adapter
+│   │   ├── openai.ts              # OpenAI adapter
+│   │   ├── anthropic.ts           # Anthropic adapter
+│   │   ├── mock-llm.ts            # Deterministic mock LLM adapter
+│   │   └── model-router.ts        # Dynamic multi-provider routing & fallback
+│   │
+│   ├── capabilities/
+│   │   ├── skills/                # Skill metadata & registry
+│   │   ├── tools/                 # Tool metadata & registry
+│   │   └── agents/                # Agent capability descriptors & execution
+│   │
+│   ├── di/                        # Inversify IoC Container & Service Identifiers (TYPES)
+│   └── errors/                    # Domain-specific typed error classes (HarnessError)
+│
+├── skills/                        # Modular skill packs (SKILL.md + metadata.json)
+│   ├── ticket-booking/
+│   ├── code-review/
+│   └── incident-debugging/
+│
+├── tools/                         # Tool specifications (tool.json)
+│   ├── calculator/
+│   ├── github/
+│   ├── slack/
+│   └── jira/
+│
+├── agents/                        # Declarative agent configurations (agent.json)
+│   ├── coder/
+│   ├── reviewer/
+│   └── researcher/
+│
+├── config/                        # Environment & model configurations
+│   ├── development.yaml
+│   ├── production.yaml
+│   └── models.yaml
+│
+├── docker-compose.yaml            # Local stack (API, Redis, pgvector)
+│
+└── tests/
+    ├── unit/                      # Guardrails, Context, Observability, DI unit tests
+    ├── integration/               # Hono HTTP & SSE server integration tests
+    ├── orchestration/             # DAG graph, cycle detection, parallel scheduler tests
+    └── evals/                     # Agent eval benchmarks
 ```
 
 ---
 
-## 2. Server-Ready `AgentHarness` Facade
+## 2. Inversify DI Container & Singleton Scoping
 
-The `AgentHarness` container class (`src/core/harness.ts`) encapsulates bootstrap, discovery, memory stores, event streaming, HITL approval gates, and runtime execution. It exposes the `runAgent` / `runAgentStream` facade API that **powers the Hono HTTP & SSE server**. The Hono server is the **only medium** for communicating with the harness — clients interact over HTTP rather than invoking agents directly:
+All dependencies are wired through the Inversify IoC container in `src/di/container.ts` with singleton lifecycle:
 
-```typescript
-// Initialize the harness (server-side, in src/server/start.ts)
-const harness = await AgentHarness.init({
-  agentsDir: "./agents",
-  skillsDir: "./skills",
-  promptsDir: "./prompts/agents",
-});
-```
-
-Run an agent (synchronous JSON response) — handled by the server route `POST /v1/agents/:id/runs`:
-
-```bash
-curl -X POST http://localhost:3000/v1/agents/default-agent/runs \
-  -H "Content-Type: application/json" \
-  -d '{"sessionId": "user-session-1", "message": "My name is Alice and I work with TypeScript"}'
-```
-
-Or stream live tokens and orchestration events over SSE — handled by the same route with `Accept: text/event-stream` / `stream: true`:
-
-```bash
-curl -N -X POST http://localhost:3000/v1/agents/default-agent/runs \
-  -H "Content-Type: application/json" \
-  -H "Accept: text/event-stream" \
-  -d '{"message": "Explain event streaming", "stream": true}'
-```
+- `TYPES.EventBus` $\rightarrow$ `HarnessEventBus`
+- `TYPES.TracingService` $\rightarrow$ `TracingService`
+- `TYPES.MetricsService` $\rightarrow$ `MetricsService`
+- `TYPES.StateStore` $\rightarrow$ `InMemoryStateStore` / `FileStateStore`
+- `TYPES.ContextManager` $\rightarrow$ `ContextManager`
+- `TYPES.TokenManager` $\rightarrow$ `TokenManager`
+- `TYPES.InputGuard`, `TYPES.ToolGuard`, `TYPES.OutputGuard`, `TYPES.PolicyEngine`
+- `TYPES.ModelRouter` $\rightarrow$ `ModelRouter`
 
 ---
 
-## 3. Short-Term Memory (Sessions & Context Compactor)
+## 3. Server Front-Door (`apps/api/`)
 
-- **`SessionStore` (`src/memory/session/`)**:
-  - `InMemorySessionStore`: Fast in-memory map for testing, microservices, and ephemeral sessions.
-  - `FileSessionStore`: Persistent JSON storage on disk (`./sessions/{id}.json`).
-- **`ContextCompactor` (`src/memory/session/context-compactor.ts`)**:
-  - Prunes conversation history when exceeding message/token limits.
-  - **Tool-Pair Integrity**: Enforces that `assistant (toolCalls)` and `tool (result)` messages are never split across compaction boundaries, preventing upstream LLM 400 Bad Request errors.
+The Hono HTTP/SSE server in `apps/api/server.ts` is the single external entrypoint:
 
----
-
-## 4. Long-Term Semantic Vector Memory
-
-- **`EmbeddingProvider` (`src/memory/long-term/embeddings.ts`)**:
-  - `LocalHashEmbeddingProvider`: Zero-dependency, deterministic 64-D hashing vectors for fast local tests and offline mode.
-  - `OpenRouterEmbeddingProvider`: Production vector embeddings calling standard text-embedding models.
-- **`InMemoryLongTermStore` (`src/memory/long-term/in-memory-long-term-store.ts`)**:
-  - Cosine similarity vector search coupled with keyword lexical boosting.
-- **`MemoryManager` (`src/memory/long-term/memory-manager.ts`)**:
-  - Performs semantic recall before each agent turn and injects top matching facts into the system prompt under `## Relevant Long-Term Memory & Prior Context`.
-- **Memory Tools (`src/memory/tools/memory-tools.ts`)**:
-  - `tool.remember_fact`: Allows agents to explicitly store user preferences and facts.
-  - `tool.search_memory`: Allows agents to query long-term memory mid-turn.
-
----
-
-## 5. Adaptive Hybrid Planning & DAG Execution
-
-- **Fast Path ($\le 1$ tool call)**: `AdaptivePlanGenerator` routes single calls directly to `StaticPlanGenerator`, taking **0 extra LLM calls** (0ms planning latency).
-- **Dynamic Path ($> 1$ tool calls)**: `AdaptivePlanGenerator` routes multi-tool batches to `LLMPlanGenerator` with capability metadata to resolve data dependencies into a topological DAG.
-- **Resilience Fallback**: If the Planner LLM encounters errors or malformed JSON, it automatically falls back to static parallel execution to ensure execution continuity.
-- **DAG Execution**: `ExecutionEngine` + `Scheduler` execute independent tasks concurrently via `Promise.all()`.
-
----
-
-## 6. Real-Time Event Bus & Token Streaming
-
-- **`HarnessEventBus` (`src/events/event-bus.ts`)**:
-  - Centralized, strongly-typed pub/sub event emitter.
-  - Emits fine-grained lifecycle events: `run:start`, `run:end`, `token:delta`, `thought:delta`, `tool:call`, `task:start`, `task:complete`, `subagent:delegated`, `hitl:approval_required`, `memory:recalled`.
-- **Streaming Adapters (`src/llm/adapters/openrouter/`)**:
-  - Full SSE chunk parser yielding live token deltas, reasoning content (`thought:delta`), and tool call arguments.
-
----
-
-## 7. HTTP & SSE API Server Layer (Hono)
-
-- Built with **Hono** and `@hono/node-server` for low-overhead, standards-compliant routing.
-- **Endpoints**:
-  - `GET /health`: Liveness and uptime check.
-  - `GET /v1/agents`: List all registered agents.
-  - `POST /v1/agents/:id/runs`: Run agent synchronously (`JSON`) or stream live events via SSE (`Accept: text/event-stream` / `stream: true`).
-  - `GET /v1/sessions` & `GET /v1/sessions/:id`: Manage conversational session histories.
-  - `POST /v1/memory` & `POST /v1/memory/search`: Semantic memory ingestion and search.
-  - `GET /v1/approvals`: Inspect pending Human-in-the-Loop checkpoints.
-  - `POST /v1/runs/:id/approve` & `POST /v1/runs/:id/reject`: Approve or reject gated tool executions.
-
----
-
-## 8. Human-in-the-Loop (HITL) & Approval Gates
-
-- **`Tool.requiresApproval`**: Sensitive tools declare approval policies (`boolean` or dynamic predicate `(input, context) => boolean`).
-- **`ApprovalManager` (`src/hitl/approval-manager.ts`)**:
-  - Intercepts sensitive task execution inside `ExecutionEngine`.
-  - Emits `hitl:approval_required` and creates a pending `Checkpoint`.
-  - Non-blocking deferred Promise resolution: `harness.approveRun(runId)` resumes task immediately; `harness.rejectRun(runId)` aborts task cleanly.
-
----
-
-## 9. Structured Logging & Observability
-
-- Integrated **Pino** (`src/utils/logger.ts`) with child loggers for contextual tracing.
-- Outputs human-readable colorized logs in development via `pino-pretty` and high-throughput JSON in production.
-- Controlled via `LOG_LEVEL` environment variable (`debug`, `info`, `warn`, `error`, `silent`).
-
----
-
-## 10. Inversify Dependency Injection (DI) & Singleton Scoping
-
-- **InversifyJS IoC Container (`src/di/container.ts`)**:
-  - All subsystem components (`CapabilityRegistry`, `AgentRegistry`, `CapabilityResolver`, `EventBus`, `MemoryManager`, `ApprovalManager`, `Orchestrator`, `ExecutionEngine`, `AgentFactory`) are bound in `.inSingletonScope()`.
-  - Strongly-typed service identifiers in `TYPES` (`src/di/types.ts`).
-  - Seamless test mock overrides and custom extension bindings via `createHarnessContainer(options)`.
-  - `AgentHarness.init(options)` constructs and resolves instances through Inversify, exposing `harness.container` for DI inspection.
+- `GET /health`: Health check with live runtime metrics
+- `POST /v1/agents/:id/runs`: Run agent synchronously or stream tokens via Server-Sent Events (SSE)
+- `GET /v1/sessions`, `GET /v1/sessions/:id`, `DELETE /v1/sessions/:id`: Conversation state management
+- `GET /v1/approvals`, `POST /v1/runs/:id/approve`, `POST /v1/runs/:id/reject`: Human-in-the-loop gates
+- `POST /v1/memory`, `POST /v1/memory/search`: Semantic long-term memory operations

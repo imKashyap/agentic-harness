@@ -1,15 +1,15 @@
 import { Hono } from "hono";
 
-import { AgentHarness } from "../../core/harness.js";
-import { createLogger } from "../../utils/logger.js";
+import { AgentHarness } from "../../../src/core/harness.js";
+import { createLogger } from "../../../src/observability/logging.js";
 
-const logger = createLogger("CapabilityRoutes");
+const logger = createLogger("MemoryRoutes");
 
-export function createCapabilityRoutes(harness: AgentHarness): Hono {
+export function createMemoryRoutes(harness: AgentHarness): Hono {
   const router = new Hono();
 
   // List all capabilities
-  router.get("/", (c) => {
+  router.get("/capabilities", (c) => {
     const capabilities = harness.listCapabilities();
     return c.json({
       success: true,
