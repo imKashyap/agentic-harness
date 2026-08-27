@@ -335,9 +335,12 @@ npm run build
 
 Pre-configured launch configurations are included in [`.vscode/launch.json`](./.vscode/launch.json):
 
-1. **`Debug: HTTP & SSE API Server`**: Start the Hono server with breakpoints enabled. Exercise any agent scenario (conversational, tool-calling, sub-agent delegation) over HTTP via `curl`/`fetch` against `http://localhost:3000/v1/agents/:id/runs`.
+1. **`Debug: API Server`**: Start the Hono server (`apps/api/server.ts`) with full source mapping and breakpoints enabled.
 2. **`Debug: Current Test File`**: Debug the active test file directly in VS Code.
-3. **`Debug: All Test Suites`**: Run all test suites under the debugger.
+3. **`Debug: Integration Tests (API)`**: Run and debug the API server integration suite (`tests/integration/api.test.ts`).
+4. **`Debug: Guardrails & Context Unit Tests`**: Debug input/output guardrails, policy engine, token managers, and memory suites.
+5. **`Debug: Orchestration Tests`**: Debug DAG dependency graphs, cycle detection, and parallel execution.
+6. **`Debug: All Test Suites`**: Run all test suites under the debugger.
 
 ---
 
