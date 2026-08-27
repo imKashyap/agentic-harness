@@ -238,6 +238,8 @@ await harness.approveRun(pending[0].runId, "Approved by Tech Lead");
 
 ## 🌐 HTTP API Reference
 
+> For complete payload schemas, SSE event details, and client integration snippets, see [docs/api-spec.md](./docs/api-spec.md).
+
 | Method   | Endpoint               | Description                                                |
 | :------- | :--------------------- | :--------------------------------------------------------- |
 | `GET`    | `/health`              | Server health and uptime                                   |
