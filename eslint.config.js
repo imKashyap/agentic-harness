@@ -6,7 +6,14 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["dist/**", "node_modules/**", ".husky/**", "coverage/**", "*.tsbuildinfo"],
+    ignores: [
+      "dist/**",
+      "node_modules/**",
+      ".husky/**",
+      ".vscode/**",
+      "coverage/**",
+      "*.tsbuildinfo",
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

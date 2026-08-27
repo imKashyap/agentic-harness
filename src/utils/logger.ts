@@ -1,72 +1,90 @@
-export type LogLevel = "debug" | "info" | "warn" | "error";
+import pino, { Logger as PinoLogger } from "pino";
 
-const LOG_LEVELS: Record<LogLevel, number> = {
-  debug: 0,
-  info: 1,
-  warn: 2,
-  error: 3,
-};
+export type LogLevel = "debug" | "info" | "warn" | "error" | "silent";
 
-function getCurrentLogLevel(): LogLevel {
+function getLogLevel(): LogLevel {
   const envLevel = process.env.LOG_LEVEL?.toLowerCase();
-  if (envLevel && envLevel in LOG_LEVELS) {
-    return envLevel as LogLevel;
+  if (
+    envLevel === "debug" ||
+    envLevel === "info" ||
+    envLevel === "warn" ||
+    envLevel === "error" ||
+    envLevel === "silent"
+  ) {
+    return envLevel;
   }
   return "info";
 }
 
+const isPretty = process.env.LOG_FORMAT !== "json" && process.env.NODE_ENV !== "production";
+
+const rootLogger: PinoLogger = pino({
+  level: getLogLevel(),
+  transport: isPretty
+    ? {
+        target: "pino-pretty",
+        options: {
+          colorize: true,
+          translateTime: "SYS:yyyy-mm-dd HH:MM:ss.l",
+          ignore: "pid,hostname",
+        },
+      }
+    : undefined,
+});
+
 export class Logger {
-  constructor(private readonly context: string) {}
+  private readonly pino: PinoLogger;
 
-  private shouldLog(level: LogLevel): boolean {
-    const currentLevel = getCurrentLogLevel();
-    return LOG_LEVELS[level] >= LOG_LEVELS[currentLevel];
+  constructor(public readonly context: string) {
+    this.pino = rootLogger.child({ context });
   }
 
-  private formatMessage(level: LogLevel, message: string): string {
-    const timestamp = new Date().toISOString();
-    const levelStr = level.toUpperCase().padEnd(5, " ");
-    return `[${timestamp}] [${levelStr}] [${this.context}] ${message}`;
-  }
-
-  debug(message: string, ...args: unknown[]): void {
-    if (this.shouldLog("debug")) {
-      if (args.length > 0) {
-        console.debug(this.formatMessage("debug", message), ...args);
-      } else {
-        console.debug(this.formatMessage("debug", message));
-      }
+  debug(message: unknown, ...args: unknown[]): void {
+    if (typeof message === "object" && message !== null) {
+      const msg = typeof args[0] === "string" ? args[0] : undefined;
+      this.pino.debug(message as object, msg);
+    } else if (args.length > 0) {
+      this.pino.debug({ extra: args }, String(message));
+    } else {
+      this.pino.debug(String(message));
     }
   }
 
-  info(message: string, ...args: unknown[]): void {
-    if (this.shouldLog("info")) {
-      if (args.length > 0) {
-        console.info(this.formatMessage("info", message), ...args);
-      } else {
-        console.info(this.formatMessage("info", message));
-      }
+  info(message: unknown, ...args: unknown[]): void {
+    if (typeof message === "object" && message !== null) {
+      const msg = typeof args[0] === "string" ? args[0] : undefined;
+      this.pino.info(message as object, msg);
+    } else if (args.length > 0) {
+      this.pino.info({ extra: args }, String(message));
+    } else {
+      this.pino.info(String(message));
     }
   }
 
-  warn(message: string, ...args: unknown[]): void {
-    if (this.shouldLog("warn")) {
-      if (args.length > 0) {
-        console.warn(this.formatMessage("warn", message), ...args);
-      } else {
-        console.warn(this.formatMessage("warn", message));
-      }
+  warn(message: unknown, ...args: unknown[]): void {
+    if (typeof message === "object" && message !== null) {
+      const msg = typeof args[0] === "string" ? args[0] : undefined;
+      this.pino.warn(message as object, msg);
+    } else if (args.length > 0) {
+      this.pino.warn({ extra: args }, String(message));
+    } else {
+      this.pino.warn(String(message));
     }
   }
 
-  error(message: string, ...args: unknown[]): void {
-    if (this.shouldLog("error")) {
-      if (args.length > 0) {
-        console.error(this.formatMessage("error", message), ...args);
-      } else {
-        console.error(this.formatMessage("error", message));
-      }
+  error(message: unknown, ...args: unknown[]): void {
+    if (typeof message === "object" && message !== null) {
+      const msg = typeof args[0] === "string" ? args[0] : undefined;
+      this.pino.error(message as object, msg);
+    } else if (args.length > 0) {
+      this.pino.error({ extra: args }, String(message));
+    } else {
+      this.pino.error(String(message));
     }
+  }
+
+  getPino(): PinoLogger {
+    return this.pino;
   }
 }
 

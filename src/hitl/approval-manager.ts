@@ -69,6 +69,10 @@ export class ApprovalManager {
         });
       }, timeoutMs);
 
+      if (typeof timer.unref === "function") {
+        timer.unref();
+      }
+
       this.pendingMap.set(approvalToken, { checkpoint, resolve, timer });
     });
   }
