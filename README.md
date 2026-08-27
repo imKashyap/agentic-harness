@@ -66,7 +66,7 @@ Agentic Harness
  └── Hono HTTP & SSE Server (/v1/agents, /v1/sessions, /v1/runs, /v1/memory)
 ```
 
-For full architectural diagrams and flowcharts, see [docs/architecture.md](./docs/architecture.md) and [docs/README.md](./docs/README.md).
+For full architectural diagrams and flowcharts, see [docs/architecture.md](./docs/architecture.md) and API specs at [docs/api-spec.md](./docs/api-spec.md).
 
 ---
 
@@ -353,7 +353,7 @@ Pre-configured launch configurations are included in [`.vscode/launch.json`](./.
 ## 📚 Documentation & Deep Dives
 
 - [docs/architecture.md](./docs/architecture.md): Full architectural overview, design patterns, and runtime flow.
-- [docs/README.md](./docs/README.md): Documentation map and Mermaid diagram index.
+- [docs/api-spec.md](./docs/api-spec.md): Complete OpenAPI-style REST and SSE API specification with code snippets.
 - [docs/diagrams/](./docs/diagrams/): Sequence diagrams for capability loading, tool dispatch, and agent delegation.
 
 ---
