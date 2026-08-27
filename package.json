@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
-    "dev": "tsx src/index.ts",
+    "dev": "tsx src/server/start.ts",
     "start:server": "tsx src/server/start.ts",
     "start": "node dist/src/server/start.js",
     "typecheck": "tsc --noEmit --project tsconfig.json",

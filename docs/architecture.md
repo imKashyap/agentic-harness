@@ -55,41 +55,39 @@ src/
 │   ├── adapters/              # OpenRouterLLM (SSE stream parser), MockLLM
 │   └── index.ts               # LLM barrel exports
 ├── prompts/                   # PromptProvider, FilePromptProvider
-├── utils/                     # Structured Pino Logger & pino-pretty
-└── index.ts                   # CLI / application entry point
+└── utils/                     # Structured Pino Logger & pino-pretty
 ```
 
 ---
 
 ## 2. Server-Ready `AgentHarness` Facade
 
-The `AgentHarness` container class (`src/core/harness.ts`) encapsulates bootstrap, discovery, memory stores, event streaming, HITL approval gates, and runtime execution. It is designed to be embedded cleanly into CLI tools, background workers, or HTTP/REST/SSE microservices:
+The `AgentHarness` container class (`src/core/harness.ts`) encapsulates bootstrap, discovery, memory stores, event streaming, HITL approval gates, and runtime execution. It exposes the `runAgent` / `runAgentStream` facade API that **powers the Hono HTTP & SSE server**. The Hono server is the **only medium** for communicating with the harness — clients interact over HTTP rather than invoking agents directly:
 
 ```typescript
-import { AgentHarness } from "./core/harness.js";
-
-// Initialize harness (with SessionStore, MemoryManager, EventBus & HITL out-of-the-box)
+// Initialize the harness (server-side, in src/server/start.ts)
 const harness = await AgentHarness.init({
   agentsDir: "./agents",
   skillsDir: "./skills",
   promptsDir: "./prompts/agents",
 });
+```
 
-// Multi-Turn Execution: pass sessionId to maintain conversational memory
-const result = await harness.runAgent(
-  "default-agent",
-  "My name is Alice and I work with TypeScript",
-  {
-    sessionId: "user-session-1",
-  },
-);
+Run an agent (synchronous JSON response) — handled by the server route `POST /v1/agents/:id/runs`:
 
-// Real-Time Token & Event Streaming
-for await (const event of harness.runAgentStream("default-agent", "Explain event streaming")) {
-  if (event.type === "token:delta") {
-    process.stdout.write(event.payload.delta);
-  }
-}
+```bash
+curl -X POST http://localhost:3000/v1/agents/default-agent/runs \
+  -H "Content-Type: application/json" \
+  -d '{"sessionId": "user-session-1", "message": "My name is Alice and I work with TypeScript"}'
+```
+
+Or stream live tokens and orchestration events over SSE — handled by the same route with `Accept: text/event-stream` / `stream: true`:
+
+```bash
+curl -N -X POST http://localhost:3000/v1/agents/default-agent/runs \
+  -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream" \
+  -d '{"message": "Explain event streaming", "stream": true}'
 ```
 
 ---

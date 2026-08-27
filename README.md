@@ -11,8 +11,7 @@ An enterprise-grade, extensible, and production-ready **TypeScript Agentic Harne
 - [Prerequisites](#-prerequisites)
 - [Quick Start & Setup](#-quick-start--setup)
 - [Running Modes](#-running-modes)
-  - [1. CLI Mode](#1-cli-mode)
-  - [2. HTTP & SSE API Server](#2-http--sse-api-server)
+  - [HTTP & SSE API Server](#http--sse-api-server)
 - [TypeScript SDK Usage](#-typescript-sdk-usage)
   - [Multi-Turn Sessions](#multi-turn-sessions)
   - [Token-Level Streaming](#token-level-streaming)
@@ -113,125 +112,120 @@ LOG_FORMAT=pretty
 
 ---
 
-## 🕹️ Running Modes
+## 🚀 Running the Server
 
-### 1. CLI Mode
-
-Run the default agent in interactive CLI mode:
+Agentic Harness exposes a single entry point: the **Hono HTTP & SSE server**. The server is the **only medium** used to communicate with the harness — there is no direct/CLI invocation of agents.
 
 ```bash
-# Run default prompt
+# Development (runs with tsx on the configured PORT, default 3000)
 npm run dev
 
-# Or pass a custom query via AGENT_INPUT
-AGENT_INPUT="Calculate (150 * 24) + 400 and remember that I prefer TypeScript." npm run dev
+# Production (compile, then run the compiled output)
+npm run build
+npm start
 ```
 
-### 2. HTTP & SSE API Server
-
-Start the standalone Hono HTTP & SSE server on port `3000`:
-
-```bash
-npm run start:server
-```
-
-Test the health check endpoint:
+Verify it's up:
 
 ```bash
 curl http://localhost:3000/health
 ```
 
+Then run agents, stream responses, manage sessions, and resolve HITL approvals entirely over HTTP — see the [HTTP API Reference](#-http-api-reference) and [`docs/api-spec.md`](./docs/api-spec.md).
+
 ---
 
-## 💻 TypeScript SDK Usage
+## 💻 Interoperating via the HTTP API
+
+The Hono server is the **only medium** for communicating with the harness. All client interactions — running agents, streaming, sessions, memory, and approvals — are performed over HTTP/HTTPS. See [`docs/api-spec.md`](./docs/api-spec.md) for the full payload schemas and SSE event catalog.
 
 ### Multi-Turn Sessions
 
-Maintain short-term context across conversation turns:
+Maintain short-term context across conversation turns by reusing the same `sessionId`:
 
-```typescript
-import { AgentHarness } from "./core/harness.js";
+```bash
+# Turn 1: introduce user information
+curl -X POST http://localhost:3000/v1/agents/default-agent/runs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sessionId": "session-alice-101",
+    "message": "Hello! My name is Alice and I build distributed systems."
+  }'
 
-const harness = await AgentHarness.init();
+# Turn 2: the agent remembers the previous turn (same sessionId)
+curl -X POST http://localhost:3000/v1/agents/default-agent/runs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sessionId": "session-alice-101",
+    "message": "What is my name and what do I build?"
+  }'
+# Response: "Your name is Alice and you build distributed systems."
+```
 
-// Turn 1: introduce user information
-const turn1 = await harness.runAgent(
-  "default-agent",
-  "Hello! My name is Alice and I build distributed systems.",
-  { sessionId: "session-alice-101" },
-);
-console.log(turn1.response);
+Inspect or delete a session's full message history:
 
-// Turn 2: agent remembers previous turn
-const turn2 = await harness.runAgent("default-agent", "What is my name and what do I build?", {
-  sessionId: "session-alice-101",
-});
-console.log(turn2.response);
-// Output: "Your name is Alice and you build distributed systems."
+```bash
+curl http://localhost:3000/v1/sessions/session-alice-101
+curl -X DELETE http://localhost:3000/v1/sessions/session-alice-101
 ```
 
 ### Token-Level Streaming
 
-Stream tokens and orchestration events in real time:
+Stream tokens and orchestration events in real time over Server-Sent Events (SSE):
 
-```typescript
-const eventStream = harness.runAgentStream(
-  "default-agent",
-  "Write an essay about distributed databases",
-);
-
-for await (const event of eventStream) {
-  if (event.type === "token:delta") {
-    process.stdout.write(event.payload.delta);
-  } else if (event.type === "task:start") {
-    console.log(`\n[Executing task: ${event.payload.capability}]`);
-  }
-}
+```bash
+curl -N -X POST http://localhost:3000/v1/agents/default-agent/runs \
+  -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream" \
+  -d '{
+    "message": "Write an essay about distributed databases",
+    "stream": true
+  }'
 ```
+
+Each SSE event is emitted as `event: <type>` followed by a `data:` JSON blob — e.g. `run:start`, `token:delta`, `task:start`, `run:end`.
 
 ### Semantic Long-Term Memory
 
-Store and recall facts semantically:
+Store and recall facts semantically over HTTP:
 
-```typescript
-// Explicitly remember a fact
-await harness.remember("Production database was upgraded to PostgreSQL 16.2", {
-  agentId: "default-agent",
-  tags: ["infrastructure", "db"],
-});
+```bash
+# Ingest a fact into the vector store
+curl -X POST http://localhost:3000/v1/memory \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agentId": "default-agent",
+    "tags": ["infrastructure", "db"],
+    "fact": "Production database was upgraded to PostgreSQL 16.2"
+  }'
 
-// Semantic recall
-const results = await harness.recall("What database version are we running?", {
-  limit: 3,
-  minScore: 0.6,
-});
-console.log(results);
+# Semantic recall
+curl -X POST http://localhost:3000/v1/memory/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agentId": "default-agent",
+    "limit": 3,
+    "query": "What database version are we running?"
+  }'
 ```
 
 ### Human-in-the-Loop (HITL) Approvals
 
-Pause sensitive tools and resume on approval:
+Sensitive tools (declared with `requiresApproval`) pause execution and create a pending checkpoint. Inspect and resolve them over HTTP:
 
-```typescript
-// Define a sensitive tool
-const sensitiveTool = {
-  id: "tool.deploy",
-  name: "Deploy Production",
-  description: "Deploys code to production",
-  type: "tool" as const,
-  requiresApproval: true, // triggers HITL gate
-  inputSchema: { type: "object" },
-  execute: async (input) => ({ success: true, output: { deployed: true } }),
-};
+```bash
+# List pending approval checkpoints
+curl http://localhost:3000/v1/approvals
 
-harness.registerTool(sensitiveTool);
+# Approve a suspended run/checkpoint (resumes execution)
+curl -X POST http://localhost:3000/v1/runs/<run-id-or-checkpoint>/approve \
+  -H "Content-Type: application/json" \
+  -d '{"reason": "Approved by Tech Lead"}'
 
-// Execution pauses when tool.deploy is called
-// Check pending approvals:
-const pending = await harness.listPendingApprovals();
-
-// Approve and resume execution:
-await harness.approveRun(pending[0].runId, "Approved by Tech Lead");
+# Reject a suspended run/checkpoint (aborts execution)
+curl -X POST http://localhost:3000/v1/runs/<run-id-or-checkpoint>/reject \
+  -H "Content-Type: application/json" \
+  -d '{"reason": "Release aborted: load test regressions detected"}'
 ```
 
 ---
@@ -341,12 +335,9 @@ npm run build
 
 Pre-configured launch configurations are included in [`.vscode/launch.json`](./.vscode/launch.json):
 
-1. **`Debug: Default Agent (CLI)`**: Debug conversational runs with breakpoints.
-2. **`Debug: Tool Execution & Fast Path`**: Debug single/multi-tool calling.
-3. **`Debug: Sub-Agent Delegation`**: Debug recursive sub-agent workflows.
-4. **`Debug: HTTP & SSE API Server`**: Debug the Hono HTTP server.
-5. **`Debug: Current Test File`**: Debug the active test file directly in VS Code.
-6. **`Debug: All Test Suites`**: Run all 29 test suites under the debugger.
+1. **`Debug: HTTP & SSE API Server`**: Start the Hono server with breakpoints enabled. Exercise any agent scenario (conversational, tool-calling, sub-agent delegation) over HTTP via `curl`/`fetch` against `http://localhost:3000/v1/agents/:id/runs`.
+2. **`Debug: Current Test File`**: Debug the active test file directly in VS Code.
+3. **`Debug: All Test Suites`**: Run all test suites under the debugger.
 
 ---
 
