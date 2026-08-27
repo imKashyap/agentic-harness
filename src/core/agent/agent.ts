@@ -18,18 +18,20 @@ export class Agent {
   }
 
   async run(input: AgentRunInput, parentContext?: ExecutionContext): Promise<AgentRunResult> {
-    const runId = crypto.randomUUID();
+    const isDirectRunContext = parentContext?.agentId === this.config.id && parentContext?.runId;
+    const runId = isDirectRunContext ? parentContext.runId : crypto.randomUUID();
+
     const context: ExecutionContext = {
       runId,
       agentId: this.config.id,
-      parentRunId: parentContext?.runId,
-      parentAgentId: parentContext?.agentId,
+      parentRunId: isDirectRunContext ? parentContext.parentRunId : parentContext?.runId,
+      parentAgentId: isDirectRunContext ? parentContext.parentAgentId : parentContext?.agentId,
       metadata: parentContext?.metadata ? { ...parentContext.metadata } : undefined,
     };
 
     logger.info(
       `Agent '${this.config.id}' starting run (runId: ${runId}${
-        parentContext
+        parentContext && !isDirectRunContext
           ? `, parentRunId: ${parentContext.runId}, parentAgent: ${parentContext.agentId}`
           : ""
       })`,
