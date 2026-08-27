@@ -1,11 +1,14 @@
 import { promises as fs } from "node:fs";
 import * as path from "node:path";
 
+import { injectable, unmanaged } from "inversify";
+
 import { createLogger } from "../utils/logger.js";
-import { ApprovalStatus, Checkpoint, CheckpointStore } from "./types.js";
+import type { ApprovalStatus, Checkpoint, CheckpointStore } from "./types.js";
 
 const logger = createLogger("CheckpointStore");
 
+@injectable()
 export class InMemoryCheckpointStore implements CheckpointStore {
   private readonly checkpoints = new Map<string, Checkpoint>();
 
@@ -66,8 +69,9 @@ export class InMemoryCheckpointStore implements CheckpointStore {
   }
 }
 
+@injectable()
 export class FileCheckpointStore implements CheckpointStore {
-  constructor(private readonly dir: string = "./checkpoints") {}
+  constructor(@unmanaged() private readonly dir: string = "./checkpoints") {}
 
   private async ensureDir(): Promise<void> {
     try {

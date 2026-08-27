@@ -1,8 +1,11 @@
+import { injectable } from "inversify";
+
 import { createLogger } from "../../utils/logger.js";
 import { Tool, ToolContext, ToolResult } from "./tool.js";
 
 const logger = createLogger("ToolExecutor");
 
+@injectable()
 export class ToolExecutor {
   async execute(tool: Tool, input: unknown, context: ToolContext): Promise<ToolResult> {
     logger.debug(`Executing tool '${tool.id}' (runId: ${context.runId})`);

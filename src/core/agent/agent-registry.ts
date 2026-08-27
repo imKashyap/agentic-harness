@@ -1,3 +1,5 @@
+import { injectable } from "inversify";
+
 import { HarnessError } from "../../errors/harness-error.js";
 import { AgentNotFoundError } from "../../errors/orchestration-errors.js";
 import { createLogger } from "../../utils/logger.js";
@@ -5,6 +7,7 @@ import { Agent } from "./agent.js";
 
 const logger = createLogger("AgentRegistry");
 
+@injectable()
 export class AgentRegistry {
   private readonly agents = new Map<string, Agent>();
 

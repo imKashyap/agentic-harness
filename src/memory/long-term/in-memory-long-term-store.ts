@@ -1,16 +1,20 @@
+import { injectable, unmanaged } from "inversify";
+
 import { createLogger } from "../../utils/logger.js";
 import { MemoryEntry, MemorySearchOptions, MemorySearchResult } from "../types.js";
 import { cosineSimilarity } from "./cosine-similarity.js";
-import { EmbeddingProvider, LocalHashEmbeddingProvider } from "./embeddings.js";
-import { LongTermMemoryStore } from "./memory-store.js";
+import type { EmbeddingProvider } from "./embeddings.js";
+import { LocalHashEmbeddingProvider } from "./embeddings.js";
+import type { LongTermMemoryStore } from "./memory-store.js";
 
 const logger = createLogger("InMemoryLongTermStore");
 
+@injectable()
 export class InMemoryLongTermStore implements LongTermMemoryStore {
   private readonly memories = new Map<string, MemoryEntry>();
   private readonly embeddingProvider: EmbeddingProvider;
 
-  constructor(embeddingProvider?: EmbeddingProvider) {
+  constructor(@unmanaged() embeddingProvider?: EmbeddingProvider) {
     this.embeddingProvider = embeddingProvider ?? new LocalHashEmbeddingProvider();
   }
 

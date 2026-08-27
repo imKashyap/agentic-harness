@@ -1,35 +1,32 @@
+import "reflect-metadata";
+
+import { Container, inject, injectable } from "inversify";
+
 import { AgentCapabilityLoader } from "../capabilities/agents/agent-capability-loader.js";
-import { SubAgentExecutor } from "../capabilities/agents/sub-agent-executor.js";
 import { Capability } from "../capabilities/capability.js";
 import { CapabilityLoader } from "../capabilities/capability-loader.js";
 import { CapabilityManager } from "../capabilities/capability-manager.js";
 import { CapabilityRegistry } from "../capabilities/capability-registry.js";
-import { CapabilityDispatcher } from "../capabilities/dispatch/capability-dispatcher.js";
 import { CapabilityResolver } from "../capabilities/resolution/capability-resolver.js";
 import { Skill } from "../capabilities/skills/skill.js";
 import { SkillLoader } from "../capabilities/skills/skill-loader.js";
 import { CalculatorTool } from "../capabilities/tools/examples/calculator-tool.js";
 import { Tool } from "../capabilities/tools/tool.js";
-import { ToolCapabilityExecutor } from "../capabilities/tools/tool-capability-executor.js";
-import { ToolExecutor } from "../capabilities/tools/tool-executor.js";
 import { ToolLoader } from "../capabilities/tools/tool-loader.js";
+import { createHarnessContainer } from "../di/container.js";
+import { TYPES } from "../di/types.js";
 import { AgentNotFoundError } from "../errors/orchestration-errors.js";
 import { HarnessEventBus } from "../events/event-bus.js";
 import { HarnessEvent } from "../events/types.js";
 import { ApprovalManager } from "../hitl/approval-manager.js";
-import { InMemoryCheckpointStore } from "../hitl/checkpoint-store.js";
-import { Checkpoint, CheckpointStore } from "../hitl/types.js";
-import { LLMFactory } from "../llm/llm-factory.js";
-import { InMemoryLongTermStore } from "../memory/long-term/in-memory-long-term-store.js";
+import type { Checkpoint, CheckpointStore } from "../hitl/types.js";
 import { MemoryManager } from "../memory/long-term/memory-manager.js";
-import { LongTermMemoryStore } from "../memory/long-term/memory-store.js";
+import type { LongTermMemoryStore } from "../memory/long-term/memory-store.js";
 import { ContextCompactor } from "../memory/session/context-compactor.js";
-import { InMemorySessionStore } from "../memory/session/in-memory-session-store.js";
-import { SessionStore } from "../memory/session/session-store.js";
+import type { SessionStore } from "../memory/session/session-store.js";
 import { RememberFactTool, SearchMemoryTool } from "../memory/tools/memory-tools.js";
 import { MemoryEntry, MemorySearchOptions, MemorySearchResult, Session } from "../memory/types.js";
-import { FilePromptProvider } from "../prompts/file-prompt-provider.js";
-import { PromptProvider } from "../prompts/prompt-provider.js";
+import type { PromptProvider } from "../prompts/prompt-provider.js";
 import { createLogger } from "../utils/logger.js";
 import { Agent } from "./agent/agent.js";
 import { AgentConfig } from "./agent/agent-config.js";
@@ -38,15 +35,8 @@ import { AgentFactory } from "./agent/agent-factory.js";
 import { AgentRegistry } from "./agent/agent-registry.js";
 import { AgentRunInput, AgentRunResult } from "./agent/agent-runner.js";
 import { ExecutionContext } from "./execution/execution-context.js";
-import { AdaptivePlanGenerator } from "./orchestration/adaptive-plan-generator.js";
-import { ExecutionEngine } from "./orchestration/execution-engine.js";
-import { LLMPlanGenerator } from "./orchestration/llm-plan-generator.js";
 import { Orchestrator } from "./orchestration/orchestrator.js";
-import { PlanGenerator } from "./orchestration/plan-generator.js";
-import { PlanValidator } from "./orchestration/plan-validator.js";
-import { Planner } from "./orchestration/planner.js";
-import { Scheduler } from "./orchestration/scheduler.js";
-import { StaticPlanGenerator } from "./orchestration/static-plan-generator.js";
+import type { PlanGenerator } from "./orchestration/plan-generator.js";
 
 const logger = createLogger("AgentHarness");
 
@@ -72,49 +62,37 @@ export interface RunAgentOptions {
   enableLongTermMemory?: boolean;
 }
 
+@injectable()
 export class AgentHarness {
-  private constructor(
-    public readonly capabilityRegistry: CapabilityRegistry,
-    public readonly agentRegistry: AgentRegistry,
-    public readonly capabilityResolver: CapabilityResolver,
-    public readonly orchestrator: Orchestrator,
-    public readonly agentFactory: AgentFactory,
-    public readonly promptProvider: PromptProvider,
-    public readonly sessionStore: SessionStore,
-    public readonly memoryManager: MemoryManager,
-    public readonly eventBus: HarnessEventBus,
-    public readonly checkpointStore: CheckpointStore,
-    public readonly approvalManager: ApprovalManager,
+  public container?: Container;
+
+  constructor(
+    @inject(TYPES.CapabilityRegistry) public readonly capabilityRegistry: CapabilityRegistry,
+    @inject(TYPES.AgentRegistry) public readonly agentRegistry: AgentRegistry,
+    @inject(TYPES.CapabilityResolver) public readonly capabilityResolver: CapabilityResolver,
+    @inject(TYPES.Orchestrator) public readonly orchestrator: Orchestrator,
+    @inject(TYPES.AgentFactory) public readonly agentFactory: AgentFactory,
+    @inject(TYPES.PromptProvider) public readonly promptProvider: PromptProvider,
+    @inject(TYPES.SessionStore) public readonly sessionStore: SessionStore,
+    @inject(TYPES.MemoryManager) public readonly memoryManager: MemoryManager,
+    @inject(TYPES.EventBus) public readonly eventBus: HarnessEventBus,
+    @inject(TYPES.CheckpointStore) public readonly checkpointStore: CheckpointStore,
+    @inject(TYPES.ApprovalManager) public readonly approvalManager: ApprovalManager,
   ) {}
 
   static async init(options: HarnessOptions = {}): Promise<AgentHarness> {
-    logger.info("Initializing AgentHarness instance...");
+    logger.info("Initializing AgentHarness instance via Inversify DI container...");
+
+    const container = createHarnessContainer(options);
+    container.bind(TYPES.AgentHarness).to(AgentHarness).inSingletonScope();
+
+    const capabilityRegistry = container.get<CapabilityRegistry>(TYPES.CapabilityRegistry);
+    const memoryManager = container.get<MemoryManager>(TYPES.MemoryManager);
+    const configLoader = container.get<AgentConfigLoader>(TYPES.AgentConfigLoader);
 
     const agentsDir = options.agentsDir ?? "./agents";
     const skillsDir = options.skillsDir ?? "./skills";
-    const promptsDir = options.promptsDir ?? "./prompts/agents";
     const tools = options.tools ?? [new CalculatorTool()];
-
-    const promptProvider = options.promptProvider ?? new FilePromptProvider(promptsDir);
-    const capabilityRegistry = new CapabilityRegistry();
-    const agentRegistry = new AgentRegistry();
-    const capabilityResolver = new CapabilityResolver();
-    const eventBus = options.eventBus ?? new HarnessEventBus();
-
-    // ─────────────────────────────────────
-    // HITL Subsystem (Checkpoints & Approvals)
-    // ─────────────────────────────────────
-    const checkpointStore = options.checkpointStore ?? new InMemoryCheckpointStore();
-    const approvalManager =
-      options.approvalManager ?? new ApprovalManager(checkpointStore, eventBus);
-
-    // ─────────────────────────────────────
-    // Memory Subsystem (Short & Long Term)
-    // ─────────────────────────────────────
-    const sessionStore = options.sessionStore ?? new InMemorySessionStore();
-    const longTermMemoryStore = options.longTermMemoryStore ?? new InMemoryLongTermStore();
-    const memoryManager = new MemoryManager(longTermMemoryStore);
-    const contextCompactor = options.contextCompactor ?? new ContextCompactor();
 
     // Auto-register memory tools
     const rememberTool = new RememberFactTool(memoryManager);
@@ -133,70 +111,10 @@ export class AgentHarness {
     const capabilityManager = new CapabilityManager(capabilityRegistry, loaders);
     await capabilityManager.load();
 
-    // ─────────────────────────────────────
-    // Execution and Orchestration
-    // ─────────────────────────────────────
-    const toolExecutor = new ToolExecutor();
-    const toolCapabilityExecutor = new ToolCapabilityExecutor(capabilityRegistry, toolExecutor);
-    const subAgentExecutor = new SubAgentExecutor(agentRegistry);
-
-    const capabilityDispatcher = new CapabilityDispatcher(
-      capabilityRegistry,
-      toolCapabilityExecutor,
-      subAgentExecutor,
-    );
-
-    const scheduler = new Scheduler();
-    const executionEngine = new ExecutionEngine(
-      capabilityDispatcher,
-      scheduler,
-      eventBus,
-      capabilityRegistry,
-      approvalManager,
-    );
-
-    // Adaptive Planner setup (Fast-path for single/zero tool calls, LLM for multi-call DAGs)
-    const staticGenerator = new StaticPlanGenerator();
-    const llmGenerator = new LLMPlanGenerator(
-      LLMFactory.create({ provider: "openrouter", model: "gemma-4-31b-it" }),
-      capabilityRegistry,
-    );
-    const planGenerator =
-      options.planGenerator ?? new AdaptivePlanGenerator(staticGenerator, llmGenerator);
-
-    const planner = new Planner(planGenerator, capabilityRegistry);
-    const planValidator = new PlanValidator(capabilityRegistry);
-    const orchestrator = new Orchestrator(planner, executionEngine, planValidator);
-
-    // ─────────────────────────────────────
-    // Agent Factory & Registration
-    // ─────────────────────────────────────
-    const agentFactory = new AgentFactory(
-      capabilityRegistry,
-      orchestrator,
-      promptProvider,
-      capabilityResolver,
-      memoryManager,
-      contextCompactor,
-      eventBus,
-    );
-
-    const harness = new AgentHarness(
-      capabilityRegistry,
-      agentRegistry,
-      capabilityResolver,
-      orchestrator,
-      agentFactory,
-      promptProvider,
-      sessionStore,
-      memoryManager,
-      eventBus,
-      checkpointStore,
-      approvalManager,
-    );
+    const harness = container.get<AgentHarness>(TYPES.AgentHarness);
+    harness.container = container;
 
     // Load available agent configs
-    const configLoader = new AgentConfigLoader();
     try {
       const defaultAgentConfig = await configLoader.load(`${agentsDir}/default-agent/agent.json`);
       harness.registerAgent(defaultAgentConfig);
@@ -211,7 +129,7 @@ export class AgentHarness {
       logger.debug("No researcher agent config found in agents directory");
     }
 
-    logger.info("AgentHarness initialized successfully with memory, event bus, and HITL gates");
+    logger.info("AgentHarness initialized successfully via Inversify container");
     return harness;
   }
 

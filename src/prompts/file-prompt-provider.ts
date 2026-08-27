@@ -1,13 +1,16 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import { injectable, unmanaged } from "inversify";
+
 import { createLogger } from "../utils/logger.js";
-import { Prompt, PromptProvider, PromptRequest } from "./prompt-provider.js";
+import type { Prompt, PromptProvider, PromptRequest } from "./prompt-provider.js";
 
 const logger = createLogger("FilePromptProvider");
 
+@injectable()
 export class FilePromptProvider implements PromptProvider {
-  constructor(private readonly basePath: string) {}
+  constructor(@unmanaged() private readonly basePath: string = "./prompts/agents") {}
 
   async getPrompt(request: PromptRequest): Promise<Prompt> {
     const version = request.version ?? "v1";

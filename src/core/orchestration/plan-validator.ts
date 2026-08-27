@@ -1,4 +1,7 @@
+import { inject, injectable, optional } from "inversify";
+
 import { CapabilityRegistry } from "../../capabilities/capability-registry.js";
+import { TYPES } from "../../di/types.js";
 import { CapabilityNotFoundError } from "../../errors/capability-errors.js";
 import {
   DependencyCycleError,
@@ -12,8 +15,13 @@ import { ExecutionPlan } from "./execution-plan.js";
 
 const logger = createLogger("PlanValidator");
 
+@injectable()
 export class PlanValidator {
-  constructor(private readonly capabilityRegistry?: CapabilityRegistry) {}
+  constructor(
+    @optional()
+    @inject(TYPES.CapabilityRegistry)
+    private readonly capabilityRegistry?: CapabilityRegistry,
+  ) {}
 
   validate(plan: ExecutionPlan): void {
     logger.debug(`Validating execution plan [${plan.id}] with ${plan.tasks.length} task(s)`);

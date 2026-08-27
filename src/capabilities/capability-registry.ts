@@ -1,3 +1,5 @@
+import { injectable } from "inversify";
+
 import {
   CapabilityAlreadyRegisteredError,
   CapabilityNotFoundError,
@@ -11,6 +13,7 @@ import { Tool } from "./tools/tool.js";
 
 const logger = createLogger("CapabilityRegistry");
 
+@injectable()
 export class CapabilityRegistry {
   private readonly capabilities = new Map<string, Capability>();
 

@@ -1,8 +1,10 @@
+import { injectable, unmanaged } from "inversify";
+
 import { createLogger } from "../../utils/logger.js";
 import { LLMPlanGenerator } from "./llm-plan-generator.js";
-import { PlanGenerator } from "./plan-generator.js";
-import { PlanStep } from "./plan-step.js";
-import { PlanningRequest } from "./planning-request.js";
+import type { PlanGenerator } from "./plan-generator.js";
+import type { PlanStep } from "./plan-step.js";
+import type { PlanningRequest } from "./planning-request.js";
 import { StaticPlanGenerator } from "./static-plan-generator.js";
 
 const logger = createLogger("AdaptivePlanGenerator");
@@ -11,10 +13,12 @@ export interface AdaptivePlanGeneratorOptions {
   fallbackToStaticOnError?: boolean;
 }
 
+@injectable()
 export class AdaptivePlanGenerator implements PlanGenerator {
   constructor(
     private readonly staticGenerator: StaticPlanGenerator,
     private readonly llmGenerator: LLMPlanGenerator,
+    @unmanaged()
     private readonly options: AdaptivePlanGeneratorOptions = { fallbackToStaticOnError: true },
   ) {}
 

@@ -1,6 +1,9 @@
+import { inject, injectable, optional } from "inversify";
+
 import { CapabilityRegistry } from "../../capabilities/capability-registry.js";
-import { CapabilityExecutor } from "../../capabilities/dispatch/capability-executor.js";
-import { Tool } from "../../capabilities/tools/tool.js";
+import type { CapabilityExecutor } from "../../capabilities/dispatch/capability-executor.js";
+import type { Tool } from "../../capabilities/tools/tool.js";
+import { TYPES } from "../../di/types.js";
 import { HarnessEventBus } from "../../events/event-bus.js";
 import { ApprovalManager } from "../../hitl/approval-manager.js";
 import { createLogger } from "../../utils/logger.js";
@@ -12,13 +15,16 @@ import { Scheduler } from "./scheduler.js";
 
 const logger = createLogger("ExecutionEngine");
 
+@injectable()
 export class ExecutionEngine {
   constructor(
-    private readonly capabilityExecutor: CapabilityExecutor,
-    private readonly scheduler: Scheduler,
-    private readonly eventBus?: HarnessEventBus,
+    @inject(TYPES.CapabilityDispatcher) private readonly capabilityExecutor: CapabilityExecutor,
+    @inject(TYPES.Scheduler) private readonly scheduler: Scheduler,
+    @optional() @inject(TYPES.EventBus) private readonly eventBus?: HarnessEventBus,
+    @optional()
+    @inject(TYPES.CapabilityRegistry)
     private readonly capabilityRegistry?: CapabilityRegistry,
-    private readonly approvalManager?: ApprovalManager,
+    @optional() @inject(TYPES.ApprovalManager) private readonly approvalManager?: ApprovalManager,
   ) {}
 
   async execute(tasks: Task[], context: ExecutionContext): Promise<ExecutionResult[]> {

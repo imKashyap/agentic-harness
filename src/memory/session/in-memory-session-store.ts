@@ -1,9 +1,12 @@
+import { injectable } from "inversify";
+
 import { createLogger } from "../../utils/logger.js";
 import { Session } from "../types.js";
 import { SessionStore } from "./session-store.js";
 
 const logger = createLogger("InMemorySessionStore");
 
+@injectable()
 export class InMemorySessionStore implements SessionStore {
   private readonly sessions = new Map<string, Session>();
 

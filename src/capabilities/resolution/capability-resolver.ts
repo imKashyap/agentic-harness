@@ -1,3 +1,5 @@
+import { injectable } from "inversify";
+
 import { AgentConfig } from "../../core/agent/agent-config.js";
 import { createLogger } from "../../utils/logger.js";
 import { AgentCapability } from "../agents/agent-capability.js";
@@ -9,6 +11,7 @@ import { LLMCapabilityContext } from "./llm-capability.js";
 
 const logger = createLogger("CapabilityResolver");
 
+@injectable()
 export class CapabilityResolver {
   resolveToolsForAgent(config: AgentConfig, registry: CapabilityRegistry): Tool[] {
     const tools: Tool[] = [];

@@ -1,3 +1,6 @@
+import { inject, injectable } from "inversify";
+
+import { TYPES } from "../../di/types.js";
 import { createLogger } from "../../utils/logger.js";
 import { ExecutionContext } from "../execution/execution-context.js";
 import { ExecutionResult } from "../execution/execution-result.js";
@@ -9,11 +12,12 @@ import { PlanningRequest } from "./planning-request.js";
 
 const logger = createLogger("Orchestrator");
 
+@injectable()
 export class Orchestrator {
   constructor(
-    private readonly planner: Planner,
-    private readonly executionEngine: ExecutionEngine,
-    private readonly planValidator: PlanValidator,
+    @inject(TYPES.Planner) private readonly planner: Planner,
+    @inject(TYPES.ExecutionEngine) private readonly executionEngine: ExecutionEngine,
+    @inject(TYPES.PlanValidator) private readonly planValidator: PlanValidator,
   ) {}
 
   async plan(request: PlanningRequest): Promise<ExecutionPlan> {

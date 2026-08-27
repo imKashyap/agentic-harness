@@ -1,3 +1,5 @@
+import { injectable } from "inversify";
+
 import { createLogger } from "../../utils/logger.js";
 import { PlanGenerator } from "./plan-generator.js";
 import { PlanStep } from "./plan-step.js";
@@ -5,6 +7,7 @@ import { PlanningRequest } from "./planning-request.js";
 
 const logger = createLogger("StaticPlanGenerator");
 
+@injectable()
 export class StaticPlanGenerator implements PlanGenerator {
   async generate(request: PlanningRequest): Promise<PlanStep[]> {
     logger.info(

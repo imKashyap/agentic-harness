@@ -1,5 +1,8 @@
+import { inject, injectable } from "inversify";
+
 import { AgentRegistry } from "../../core/agent/agent-registry.js";
 import { ExecutionContext } from "../../core/execution/execution-context.js";
+import { TYPES } from "../../di/types.js";
 import { createLogger } from "../../utils/logger.js";
 import {
   CapabilityExecutionRequest,
@@ -10,8 +13,9 @@ import { AgentCapability } from "./agent-capability.js";
 
 const logger = createLogger("SubAgentExecutor");
 
+@injectable()
 export class SubAgentExecutor implements CapabilityExecutor {
-  constructor(private readonly agentRegistry: AgentRegistry) {}
+  constructor(@inject(TYPES.AgentRegistry) private readonly agentRegistry: AgentRegistry) {}
 
   async execute(
     request: CapabilityExecutionRequest,

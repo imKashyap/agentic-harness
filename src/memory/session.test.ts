@@ -1,3 +1,5 @@
+import "reflect-metadata";
+
 import assert from "node:assert";
 import { promises as fs } from "node:fs";
 import { describe, it } from "node:test";

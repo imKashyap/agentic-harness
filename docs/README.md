@@ -1,83 +1,359 @@
-# Agentic Harness Documentation
+# 🚀 Agentic Harness
 
-Architecture documentation for the agentic harness — focused diagrams tied to TypeScript classes and files, with explanatory text in Markdown.
+An enterprise-grade, extensible, and production-ready **TypeScript Agentic Harness** for building, orchestrating, and serving autonomous AI agents with short & long-term memory, directed acyclic graph (DAG) task execution, token streaming, human-in-the-loop approval gates, and a native HTTP / SSE API server.
 
-## Architecture & Design Guides
+---
 
-See [architecture.md](./architecture.md) for the full architectural guide.
+## 📑 Table of Contents
 
-| Topic                             | Diagram / Resource                                                                   | Status      |
-| :-------------------------------- | :----------------------------------------------------------------------------------- | :---------- |
-| Overall Architecture              | [architecture.md](./architecture.md)                                                 | Implemented |
-| Capability Loading & Discovery    | [capability-loading.mmd](./diagrams/capability-loading.mmd)                          | Implemented |
-| Skill Loading & Prompt Injection  | [skill-loading.mmd](./diagrams/skill-loading.mmd)                                    | Implemented |
-| Tool Invocation & Execution       | [tool-execution.mmd](./diagrams/tool-execution.mmd)                                  | Implemented |
-| Agent Config, Factory & Registry  | [agent-loading.mmd](./diagrams/agent-loading.mmd)                                    | Implemented |
-| Parent → Sub-Agent Delegation     | [agent-delegation.mmd](./diagrams/agent-delegation.mmd)                              | Implemented |
-| End-to-End Request Lifecycle      | [request-cycle.mmd](./diagrams/request-cycle.mmd)                                    | Implemented |
-| Adaptive Hybrid DAG Planning      | [architecture.md#5-adaptive-hybrid-planning--dag-execution](./architecture.md)       | Implemented |
-| Short-Term & Long-Term Memory     | [architecture.md#3-short-term-memory-sessions--context-compactor](./architecture.md) | Implemented |
-| Token-Level Streaming & Event Bus | [architecture.md#6-real-time-event-bus--token-streaming](./architecture.md)          | Implemented |
-| HTTP & SSE Server Layer (Hono)    | [architecture.md#7-http--sse-api-server-layer-hono](./architecture.md)               | Implemented |
-| Human-in-the-Loop (HITL) Gates    | [architecture.md#8-human-in-the-loop-hitl--approval-gates](./architecture.md)        | Implemented |
-| Structured Logging (Pino)         | [architecture.md#9-structured-logging--observability](./architecture.md)             | Implemented |
+- [Overview & Key Features](#-overview--key-features)
+- [System Architecture](#-system-architecture)
+- [Prerequisites](#-prerequisites)
+- [Quick Start & Setup](#-quick-start--setup)
+- [Running Modes](#-running-modes)
+  - [1. CLI Mode](#1-cli-mode)
+  - [2. HTTP & SSE API Server](#2-http--sse-api-server)
+- [TypeScript SDK Usage](#-typescript-sdk-usage)
+  - [Multi-Turn Sessions](#multi-turn-sessions)
+  - [Token-Level Streaming](#token-level-streaming)
+  - [Semantic Long-Term Memory](#semantic-long-term-memory)
+  - [Human-in-the-Loop (HITL) Approvals](#human-in-the-loop-hitl-approvals)
+- [HTTP API Reference](#-http-api-reference)
+- [Creating Agents, Skills & Tools](#-creating-agents-skills--tools)
+- [Development & Verification](#-development--verification)
+- [VS Code Debugging](#-vs-code-debugging)
+- [Documentation & Deep Dives](#-documentation--deep-dives)
 
-## Viewing Diagrams
+---
 
-`.mmd` files are plain Mermaid source. To preview:
+## 🌟 Overview & Key Features
 
-- Open the file in VS Code with a Mermaid preview extension
-- Paste the contents into [mermaid.live](https://mermaid.live)
-- Use the Mermaid CLI: `npx @mermaid-js/mermaid-cli -i docs/diagrams/<name>.mmd -o out.svg`
+Agentic Harness provides the infrastructure required to move from prototype LLM wrappers to robust, stateful agentic systems:
 
-## Source Layout
+- 🧠 **Dual-Tier Memory Subsystem**:
+  - **Short-Term Sessions**: Multi-turn history management with `ContextCompactor` that preserves system prompts and atomic tool call/result pairs.
+  - **Long-Term Vector Store**: Cosine similarity semantic search with lexical boosting and auto-injection of recalled context into prompts.
+- ⚡ **Adaptive Hybrid DAG Planner**:
+  - **Fast-Path (0ms overhead)**: Executes single/zero tool calls directly without extra planner LLM calls.
+  - **Dynamic DAG Path**: Uses capability-aware LLM planning to construct topological dependency graphs for multi-tool batches, running independent tasks in parallel (`Promise.all`).
+- 🌊 **Real-Time Token Streaming & Event Bus**:
+  - Strongly typed `HarnessEventBus` emitting granular lifecycle events (`run:start`, `token:delta`, `thought:delta`, `tool:call`, `task:start`, `subagent:delegated`, etc.).
+  - OpenRouter SSE streaming adapter with live markdown chunking.
+- 🛡️ **Human-in-the-Loop (HITL) Approval Gates**:
+  - Sensitive tools trigger execution pauses with unique approval tokens.
+  - Non-blocking deferred Promise resolution with disk-backed checkpointing (`InMemoryCheckpointStore` & `FileCheckpointStore`).
+- 🌐 **Hono HTTP & Server-Sent Events (SSE) Server**:
+  - Fast, standards-compliant API server exposing endpoints for agent execution, streaming runs, session CRUD, and HITL decision approvals.
+- 🔍 **Structured Logging with Pino**:
+  - High-throughput structured logging with colorized, human-readable output in development (`pino-pretty`) and raw JSON in production.
+
+---
+
+## 🏛️ System Architecture
 
 ```
-src/
-├── core/
-│   ├── agent/                 # Agent, AgentRunner, AgentFactory, AgentRegistry, AgentConfig
-│   ├── execution/             # ExecutionContext (Runtime state & identifiers)
-│   ├── orchestration/         # DAG DependencyGraph, ExecutionEngine, Scheduler, Planner, PlanValidator
-│   ├── harness.ts             # Server-ready AgentHarness facade container
-│   └── index.ts               # Core barrel exports
-├── events/
-│   ├── event-bus.ts           # Typed pub/sub event bus & async iterable stream runners
-│   ├── types.ts               # HarnessEventMap, HarnessEventType, payloads
-│   └── index.ts               # Events barrel exports
-├── server/
-│   ├── app.ts                 # Hono web app with CORS, logging, and error handling
-│   ├── server.ts              # Node.js HTTP server adapter
-│   ├── start.ts               # Standalone server startup entrypoint
-│   ├── routes/                # REST & SSE endpoints (agents, sessions, capabilities, runs)
-│   └── index.ts               # Server barrel exports
-├── hitl/
-│   ├── approval-manager.ts    # Deferred approval resolution & timeout manager
-│   ├── checkpoint-store.ts    # InMemory & FileCheckpointStore
-│   ├── types.ts               # Checkpoint, ApprovalDecision, ApprovalStatus
-│   └── index.ts               # HITL barrel exports
-├── memory/
-│   ├── session/               # Short-Term SessionStore (InMemory, FileStore) & ContextCompactor
-│   ├── long-term/             # LongTermMemoryStore, Vector Embeddings & Cosine Similarity, MemoryManager
-│   ├── tools/                 # RememberFactTool, SearchMemoryTool
-│   ├── types.ts               # Session, MemoryEntry, MemorySearchResult, SessionRunOptions
-│   └── index.ts               # Memory barrel exports
-├── capabilities/
-│   ├── registry/              # CapabilityRegistry, CapabilityManager
-│   ├── loaders/               # SkillLoader, AgentCapabilityLoader, ToolLoader
-│   ├── tools/                 # Tool interface, ToolExecutor, ToolCapabilityExecutor, CalculatorTool
-│   ├── agents/                # AgentCapability, SubAgentExecutor
-│   ├── skills/                # Skill interface & loaders
-│   ├── resolution/            # CapabilityResolver (Agent scoping & prompt injection)
-│   ├── dispatch/              # CapabilityDispatcher, CapabilityExecutor interface
-│   ├── capability-utils.ts    # ID parsing and normalization
-│   └── index.ts               # Capabilities barrel exports
-├── errors/                    # Domain-specific typed error classes (HarnessError hierarchy)
-├── llm/
-│   ├── types.ts               # LLM, Message, ToolCall, LLMRequest, LLMResponse, streaming chunks
-│   ├── llm-factory.ts         # Provider adapter factory
-│   ├── adapters/              # OpenRouterLLM (SSE stream parser), MockLLM
-│   └── index.ts               # LLM barrel exports
-├── prompts/                   # PromptProvider, FilePromptProvider
-├── utils/                     # Structured Pino Logger & pino-pretty
-└── index.ts                   # CLI / application entry point
+Agentic Harness
+ ├── AgentHarness (Facade Container)
+ │    ├── CapabilityRegistry (Tools, Skills, Sub-Agents)
+ │    ├── AgentRegistry & AgentFactory
+ │    ├── Orchestrator (Adaptive Planner + DAG Execution Engine)
+ │    ├── SessionStore (InMemory / FileStorage) & ContextCompactor
+ │    ├── MemoryManager (Embeddings + Vector Cosine Store)
+ │    ├── ApprovalManager (HITL Checkpoints & Resolution)
+ │    └── HarnessEventBus (Pub/Sub Lifecycle & Stream Runners)
+ └── Hono HTTP & SSE Server (/v1/agents, /v1/sessions, /v1/runs, /v1/memory)
 ```
+
+For full architectural diagrams and flowcharts, see [docs/architecture.md](./docs/architecture.md) and [docs/README.md](./docs/README.md).
+
+---
+
+## 📋 Prerequisites
+
+- **Node.js**: `>= 20.0.0`
+- **npm**: `>= 10.0.0`
+- **OpenRouter API Key** (optional for mock tests, required for live LLM execution): [openrouter.ai](https://openrouter.ai)
+
+---
+
+## 🚀 Quick Start & Setup
+
+### 1. Clone the repository and install dependencies
+
+```bash
+git clone https://github.com/imKashyap/agentic-harness.git
+cd agentic-harness
+npm install
+```
+
+### 2. Configure environment variables
+
+Copy `.env.example` to `.env` (or create a `.env` file):
+
+```bash
+cp .env.example .env
+```
+
+Set your configuration in `.env`:
+
+```env
+# OpenRouter API Key for live models (e.g. google/gemini-2.0-flash-001)
+OPENROUTER_API_KEY=your_openrouter_api_key_here
+
+# Server Configuration
+PORT=3000
+NODE_ENV=development
+
+# Logging Level (debug, info, warn, error, silent)
+LOG_LEVEL=info
+LOG_FORMAT=pretty
+```
+
+---
+
+## 🕹️ Running Modes
+
+### 1. CLI Mode
+
+Run the default agent in interactive CLI mode:
+
+```bash
+# Run default prompt
+npm run dev
+
+# Or pass a custom query via AGENT_INPUT
+AGENT_INPUT="Calculate (150 * 24) + 400 and remember that I prefer TypeScript." npm run dev
+```
+
+### 2. HTTP & SSE API Server
+
+Start the standalone Hono HTTP & SSE server on port `3000`:
+
+```bash
+npm run start:server
+```
+
+Test the health check endpoint:
+
+```bash
+curl http://localhost:3000/health
+```
+
+---
+
+## 💻 TypeScript SDK Usage
+
+### Multi-Turn Sessions
+
+Maintain short-term context across conversation turns:
+
+```typescript
+import { AgentHarness } from "./core/harness.js";
+
+const harness = await AgentHarness.init();
+
+// Turn 1: introduce user information
+const turn1 = await harness.runAgent(
+  "default-agent",
+  "Hello! My name is Alice and I build distributed systems.",
+  { sessionId: "session-alice-101" },
+);
+console.log(turn1.response);
+
+// Turn 2: agent remembers previous turn
+const turn2 = await harness.runAgent("default-agent", "What is my name and what do I build?", {
+  sessionId: "session-alice-101",
+});
+console.log(turn2.response);
+// Output: "Your name is Alice and you build distributed systems."
+```
+
+### Token-Level Streaming
+
+Stream tokens and orchestration events in real time:
+
+```typescript
+const eventStream = harness.runAgentStream(
+  "default-agent",
+  "Write an essay about distributed databases",
+);
+
+for await (const event of eventStream) {
+  if (event.type === "token:delta") {
+    process.stdout.write(event.payload.delta);
+  } else if (event.type === "task:start") {
+    console.log(`\n[Executing task: ${event.payload.capability}]`);
+  }
+}
+```
+
+### Semantic Long-Term Memory
+
+Store and recall facts semantically:
+
+```typescript
+// Explicitly remember a fact
+await harness.remember("Production database was upgraded to PostgreSQL 16.2", {
+  agentId: "default-agent",
+  tags: ["infrastructure", "db"],
+});
+
+// Semantic recall
+const results = await harness.recall("What database version are we running?", {
+  limit: 3,
+  minScore: 0.6,
+});
+console.log(results);
+```
+
+### Human-in-the-Loop (HITL) Approvals
+
+Pause sensitive tools and resume on approval:
+
+```typescript
+// Define a sensitive tool
+const sensitiveTool = {
+  id: "tool.deploy",
+  name: "Deploy Production",
+  description: "Deploys code to production",
+  type: "tool" as const,
+  requiresApproval: true, // triggers HITL gate
+  inputSchema: { type: "object" },
+  execute: async (input) => ({ success: true, output: { deployed: true } }),
+};
+
+harness.registerTool(sensitiveTool);
+
+// Execution pauses when tool.deploy is called
+// Check pending approvals:
+const pending = await harness.listPendingApprovals();
+
+// Approve and resume execution:
+await harness.approveRun(pending[0].runId, "Approved by Tech Lead");
+```
+
+---
+
+## 🌐 HTTP API Reference
+
+| Method   | Endpoint               | Description                                                |
+| :------- | :--------------------- | :--------------------------------------------------------- |
+| `GET`    | `/health`              | Server health and uptime                                   |
+| `GET`    | `/v1/agents`           | List registered agents                                     |
+| `POST`   | `/v1/agents/:id/runs`  | Execute agent (`JSON` or SSE streaming via `stream: true`) |
+| `GET`    | `/v1/sessions`         | List conversational sessions                               |
+| `GET`    | `/v1/sessions/:id`     | Get session message history                                |
+| `DELETE` | `/v1/sessions/:id`     | Delete a session                                           |
+| `GET`    | `/v1/capabilities`     | List all registered tools, skills, and agents              |
+| `POST`   | `/v1/memory`           | Ingest a memory into vector store                          |
+| `POST`   | `/v1/memory/search`    | Search semantic long-term memory                           |
+| `GET`    | `/v1/approvals`        | List pending HITL approval checkpoints                     |
+| `POST`   | `/v1/runs/:id/approve` | Approve a suspended task run                               |
+| `POST`   | `/v1/runs/:id/reject`  | Reject a suspended task run                                |
+
+### SSE Streaming Example via `curl`:
+
+```bash
+curl -X POST http://localhost:3000/v1/agents/default-agent/runs \
+  -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream" \
+  -d '{
+    "message": "Calculate 150 * 35 and explain the steps",
+    "stream": true
+  }'
+```
+
+---
+
+## 🛠️ Creating Agents, Skills & Tools
+
+### Creating a Tool (`src/capabilities/tools/`)
+
+```typescript
+import { Tool, ToolContext, ToolResult } from "./tool.js";
+
+export class WeatherTool implements Tool {
+  public readonly id = "tool.weather";
+  public readonly name = "Weather Lookup";
+  public readonly description = "Fetches current weather for a city";
+  public readonly type = "tool" as const;
+  public readonly inputSchema = {
+    type: "object",
+    properties: { city: { type: "string" } },
+    required: ["city"],
+  };
+
+  async execute(input: { city: string }, context: ToolContext): Promise<ToolResult> {
+    return {
+      success: true,
+      output: { city: input.city, temp: "22°C", condition: "Sunny" },
+    };
+  }
+}
+```
+
+### Creating an Agent (`agents/<id>/agent.json`)
+
+```json
+{
+  "id": "researcher",
+  "name": "Research Agent",
+  "model": {
+    "provider": "openrouter",
+    "model": "google/gemini-2.0-flash-001"
+  },
+  "prompt": {
+    "id": "researcher"
+  },
+  "skills": ["skill.greeting"],
+  "tools": ["tool.calculator", "tool.search_memory"],
+  "subAgents": []
+}
+```
+
+---
+
+## 🧪 Development & Verification
+
+Run the full quality and test suite:
+
+```bash
+# Run typecheck, unit/integration tests, linter, and format checker
+npm run verify
+
+# Run unit tests only
+npm test
+
+# Auto-fix linting and formatting issues
+npm run fix
+
+# Build production TypeScript output to dist/
+npm run build
+```
+
+---
+
+## 🐞 VS Code Debugging
+
+Pre-configured launch configurations are included in [`.vscode/launch.json`](./.vscode/launch.json):
+
+1. **`Debug: Default Agent (CLI)`**: Debug conversational runs with breakpoints.
+2. **`Debug: Tool Execution & Fast Path`**: Debug single/multi-tool calling.
+3. **`Debug: Sub-Agent Delegation`**: Debug recursive sub-agent workflows.
+4. **`Debug: HTTP & SSE API Server`**: Debug the Hono HTTP server.
+5. **`Debug: Current Test File`**: Debug the active test file directly in VS Code.
+6. **`Debug: All Test Suites`**: Run all 29 test suites under the debugger.
+
+---
+
+## 📚 Documentation & Deep Dives
+
+- [docs/architecture.md](./docs/architecture.md): Full architectural overview, design patterns, and runtime flow.
+- [docs/README.md](./docs/README.md): Documentation map and Mermaid diagram index.
+- [docs/diagrams/](./docs/diagrams/): Sequence diagrams for capability loading, tool dispatch, and agent delegation.
+
+---
+
+## 📄 License
+
+MIT License. Designed with extensibility, type safety, and resilience.

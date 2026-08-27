@@ -1,9 +1,12 @@
+import { injectable } from "inversify";
+
 import { createLogger } from "../../utils/logger.js";
 import { Task } from "../execution/task.js";
 import { DependencyGraph } from "./dependency-graph.js";
 
 const logger = createLogger("Scheduler");
 
+@injectable()
 export class Scheduler {
   getRunnableTasks(tasks: Task[]): Task[] {
     const graph = new DependencyGraph(tasks);

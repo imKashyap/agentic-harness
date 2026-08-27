@@ -1,15 +1,21 @@
+import { inject, injectable, optional } from "inversify";
+
 import { CapabilityRegistry } from "../../capabilities/capability-registry.js";
+import { TYPES } from "../../di/types.js";
 import { createLogger } from "../../utils/logger.js";
 import { Task } from "../execution/task.js";
 import { ExecutionPlan } from "./execution-plan.js";
-import { PlanGenerator } from "./plan-generator.js";
+import type { PlanGenerator } from "./plan-generator.js";
 import { PlanningRequest } from "./planning-request.js";
 
 const logger = createLogger("Planner");
 
+@injectable()
 export class Planner {
   constructor(
-    private readonly planGenerator: PlanGenerator,
+    @inject(TYPES.PlanGenerator) private readonly planGenerator: PlanGenerator,
+    @optional()
+    @inject(TYPES.CapabilityRegistry)
     private readonly capabilityRegistry?: CapabilityRegistry,
   ) {}
 

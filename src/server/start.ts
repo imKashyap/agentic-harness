@@ -1,3 +1,5 @@
+import "reflect-metadata";
+
 import { AgentHarness } from "../core/harness.js";
 import { createLogger } from "../utils/logger.js";
 import { startServer } from "./server.js";

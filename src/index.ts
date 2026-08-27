@@ -1,3 +1,4 @@
+import "reflect-metadata";
 import "dotenv/config";
 
 import { AgentHarness } from "./core/harness.js";

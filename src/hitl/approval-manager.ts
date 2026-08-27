@@ -1,7 +1,10 @@
+import { inject, injectable, optional } from "inversify";
+
+import { TYPES } from "../di/types.js";
 import { HarnessEventBus } from "../events/event-bus.js";
 import { createLogger } from "../utils/logger.js";
 import { InMemoryCheckpointStore } from "./checkpoint-store.js";
-import { ApprovalDecision, Checkpoint, CheckpointStore } from "./types.js";
+import type { ApprovalDecision, Checkpoint, CheckpointStore } from "./types.js";
 
 const logger = createLogger("ApprovalManager");
 
@@ -11,13 +14,14 @@ interface PendingDeferred {
   timer: NodeJS.Timeout;
 }
 
+@injectable()
 export class ApprovalManager {
   private readonly pendingMap = new Map<string, PendingDeferred>();
   private readonly store: CheckpointStore;
 
   constructor(
-    store?: CheckpointStore,
-    private readonly eventBus?: HarnessEventBus,
+    @inject(TYPES.CheckpointStore) store?: CheckpointStore,
+    @optional() @inject(TYPES.EventBus) private readonly eventBus?: HarnessEventBus,
   ) {
     this.store = store ?? new InMemoryCheckpointStore();
   }

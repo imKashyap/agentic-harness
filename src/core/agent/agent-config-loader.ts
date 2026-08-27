@@ -1,10 +1,13 @@
 import { readFile } from "node:fs/promises";
 
+import { injectable } from "inversify";
+
 import { createLogger } from "../../utils/logger.js";
 import { AgentConfig, AgentConfigSchema } from "./agent-config.js";
 
 const logger = createLogger("AgentConfigLoader");
 
+@injectable()
 export class AgentConfigLoader {
   async load(path: string): Promise<AgentConfig> {
     logger.debug(`Loading agent config from: ${path}`);

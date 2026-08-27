@@ -1,10 +1,13 @@
+import { inject, injectable, optional } from "inversify";
+
 import { CapabilityRegistry } from "../../capabilities/capability-registry.js";
 import { CapabilityResolver } from "../../capabilities/resolution/capability-resolver.js";
+import { TYPES } from "../../di/types.js";
 import { HarnessEventBus } from "../../events/event-bus.js";
 import { LLMFactory } from "../../llm/llm-factory.js";
 import { MemoryManager } from "../../memory/long-term/memory-manager.js";
 import { ContextCompactor } from "../../memory/session/context-compactor.js";
-import { PromptProvider } from "../../prompts/prompt-provider.js";
+import type { PromptProvider } from "../../prompts/prompt-provider.js";
 import { createLogger } from "../../utils/logger.js";
 import { Orchestrator } from "../orchestration/orchestrator.js";
 import { Agent } from "./agent.js";
@@ -13,17 +16,20 @@ import { AgentRunner } from "./agent-runner.js";
 
 const logger = createLogger("AgentFactory");
 
+@injectable()
 export class AgentFactory {
   private readonly capabilityResolver: CapabilityResolver;
 
   constructor(
-    private readonly capabilityRegistry: CapabilityRegistry,
-    private readonly orchestrator: Orchestrator,
-    private readonly promptProvider: PromptProvider,
-    capabilityResolver?: CapabilityResolver,
-    private readonly memoryManager?: MemoryManager,
+    @inject(TYPES.CapabilityRegistry) private readonly capabilityRegistry: CapabilityRegistry,
+    @inject(TYPES.Orchestrator) private readonly orchestrator: Orchestrator,
+    @inject(TYPES.PromptProvider) private readonly promptProvider: PromptProvider,
+    @optional() @inject(TYPES.CapabilityResolver) capabilityResolver?: CapabilityResolver,
+    @optional() @inject(TYPES.MemoryManager) private readonly memoryManager?: MemoryManager,
+    @optional()
+    @inject(TYPES.ContextCompactor)
     private readonly contextCompactor?: ContextCompactor,
-    private readonly eventBus?: HarnessEventBus,
+    @optional() @inject(TYPES.EventBus) private readonly eventBus?: HarnessEventBus,
   ) {
     this.capabilityResolver = capabilityResolver ?? new CapabilityResolver();
   }

@@ -1,8 +1,11 @@
+import { inject, injectable } from "inversify";
+
 import { ExecutionContext } from "../../core/execution/execution-context.js";
+import { TYPES } from "../../di/types.js";
 import { CapabilityTypeError } from "../../errors/capability-errors.js";
 import { createLogger } from "../../utils/logger.js";
 import { CapabilityRegistry } from "../capability-registry.js";
-import {
+import type {
   CapabilityExecutionRequest,
   CapabilityExecutionResult,
   CapabilityExecutor,
@@ -10,11 +13,12 @@ import {
 
 const logger = createLogger("CapabilityDispatcher");
 
+@injectable()
 export class CapabilityDispatcher implements CapabilityExecutor {
   constructor(
-    private readonly registry: CapabilityRegistry,
-    private readonly toolExecutor: CapabilityExecutor,
-    private readonly subAgentExecutor: CapabilityExecutor,
+    @inject(TYPES.CapabilityRegistry) private readonly registry: CapabilityRegistry,
+    @inject(TYPES.ToolCapabilityExecutor) private readonly toolExecutor: CapabilityExecutor,
+    @inject(TYPES.SubAgentExecutor) private readonly subAgentExecutor: CapabilityExecutor,
   ) {}
 
   async execute(

@@ -1,14 +1,17 @@
 import { promises as fs } from "node:fs";
 import * as path from "node:path";
 
+import { injectable, unmanaged } from "inversify";
+
 import { createLogger } from "../../utils/logger.js";
 import { Session } from "../types.js";
-import { SessionStore } from "./session-store.js";
+import type { SessionStore } from "./session-store.js";
 
 const logger = createLogger("FileSessionStore");
 
+@injectable()
 export class FileSessionStore implements SessionStore {
-  constructor(private readonly sessionsDir: string = "./sessions") {}
+  constructor(@unmanaged() private readonly sessionsDir: string = "./sessions") {}
 
   private async ensureDir(): Promise<void> {
     try {

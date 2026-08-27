@@ -1,12 +1,19 @@
+import { inject, injectable } from "inversify";
+
+import { TYPES } from "../../di/types.js";
 import { createLogger } from "../../utils/logger.js";
 import { MemoryEntry, MemorySearchOptions, MemorySearchResult } from "../types.js";
 import { InMemoryLongTermStore } from "./in-memory-long-term-store.js";
-import { LongTermMemoryStore } from "./memory-store.js";
+import type { LongTermMemoryStore } from "./memory-store.js";
 
 const logger = createLogger("MemoryManager");
 
+@injectable()
 export class MemoryManager {
-  constructor(private readonly store: LongTermMemoryStore = new InMemoryLongTermStore()) {}
+  constructor(
+    @inject(TYPES.LongTermMemoryStore)
+    private readonly store: LongTermMemoryStore = new InMemoryLongTermStore(),
+  ) {}
 
   async remember(
     content: string,

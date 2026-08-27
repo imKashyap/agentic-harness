@@ -1,3 +1,5 @@
+import { injectable, unmanaged } from "inversify";
+
 import { Message } from "../../llm/types.js";
 import { createLogger } from "../../utils/logger.js";
 
@@ -8,8 +10,9 @@ export interface CompactionOptions {
   preserveSystem?: boolean;
 }
 
+@injectable()
 export class ContextCompactor {
-  constructor(private readonly defaultMaxMessages: number = 30) {}
+  constructor(@unmanaged() private readonly defaultMaxMessages: number = 30) {}
 
   compact(messages: Message[], options: CompactionOptions = {}): Message[] {
     const maxMessages = options.maxMessages ?? this.defaultMaxMessages;

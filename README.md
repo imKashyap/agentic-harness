@@ -44,6 +44,8 @@ Agentic Harness provides the infrastructure required to move from prototype LLM 
   - Non-blocking deferred Promise resolution with disk-backed checkpointing (`InMemoryCheckpointStore` & `FileCheckpointStore`).
 - 🌐 **Hono HTTP & Server-Sent Events (SSE) Server**:
   - Fast, standards-compliant API server exposing endpoints for agent execution, streaming runs, session CRUD, and HITL decision approvals.
+- 💉 **InversifyJS Dependency Injection & Singleton Scoping**:
+  - Full IoC container architecture with `@injectable()`, `@inject()`, and singleton lifecycle scoping across all services and registries.
 - 🔍 **Structured Logging with Pino**:
   - High-throughput structured logging with colorized, human-readable output in development (`pino-pretty`) and raw JSON in production.
 

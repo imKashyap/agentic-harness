@@ -10,12 +10,13 @@ The harness is organized into decoupled layers: **facade/bootstrap**, **core orc
 
 ```
 src/
+├── di/                    # Inversify IoC Container & Service Identifiers (TYPES)
 ├── core/
-│   ├── agent/                 # Agent, AgentRunner, AgentFactory, AgentRegistry, AgentConfig
-│   ├── execution/             # ExecutionContext (Runtime state & identifiers)
-│   ├── orchestration/         # DAG DependencyGraph, ExecutionEngine, Scheduler, Planner, PlanValidator
-│   ├── harness.ts             # Server-ready AgentHarness facade container
-│   └── index.ts               # Core barrel exports
+│   ├── agent/             # Agent, AgentRunner, AgentFactory, AgentRegistry, AgentConfig
+│   ├── execution/         # ExecutionContext (Runtime state & identifiers)
+│   ├── orchestration/     # DAG DependencyGraph, ExecutionEngine, Scheduler, Planner, PlanValidator
+│   ├── harness.ts         # Server-ready AgentHarness facade container
+│   └── index.ts           # Core barrel exports
 ├── events/
 │   ├── event-bus.ts           # Typed pub/sub event bus & async iterable stream runners
 │   ├── types.ts               # HarnessEventMap, HarnessEventType, payloads
@@ -167,3 +168,13 @@ for await (const event of harness.runAgentStream("default-agent", "Explain event
 - Integrated **Pino** (`src/utils/logger.ts`) with child loggers for contextual tracing.
 - Outputs human-readable colorized logs in development via `pino-pretty` and high-throughput JSON in production.
 - Controlled via `LOG_LEVEL` environment variable (`debug`, `info`, `warn`, `error`, `silent`).
+
+---
+
+## 10. Inversify Dependency Injection (DI) & Singleton Scoping
+
+- **InversifyJS IoC Container (`src/di/container.ts`)**:
+  - All subsystem components (`CapabilityRegistry`, `AgentRegistry`, `CapabilityResolver`, `EventBus`, `MemoryManager`, `ApprovalManager`, `Orchestrator`, `ExecutionEngine`, `AgentFactory`) are bound in `.inSingletonScope()`.
+  - Strongly-typed service identifiers in `TYPES` (`src/di/types.ts`).
+  - Seamless test mock overrides and custom extension bindings via `createHarnessContainer(options)`.
+  - `AgentHarness.init(options)` constructs and resolves instances through Inversify, exposing `harness.container` for DI inspection.

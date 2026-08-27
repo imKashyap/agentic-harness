@@ -1,10 +1,13 @@
 import { EventEmitter } from "node:events";
 
+import { injectable } from "inversify";
+
 import { createLogger } from "../utils/logger.js";
 import { HarnessEvent, HarnessEventMap, HarnessEventType } from "./types.js";
 
 const logger = createLogger("HarnessEventBus");
 
+@injectable()
 export class HarnessEventBus {
   private readonly emitter = new EventEmitter();
 

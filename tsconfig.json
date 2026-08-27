@@ -12,7 +12,9 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "types": ["node"],
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "types": ["node", "reflect-metadata"],
     "noUncheckedIndexedAccess": true,
     "noFallthroughCasesInSwitch": true
   },
