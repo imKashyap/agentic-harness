@@ -1,4 +1,5 @@
 import { ExecutionContext } from "../../core/execution/execution-context.js";
+import { RetryPolicy } from "../../resilience/types.js";
 import { Capability } from "../capability.js";
 
 export type ToolContext = ExecutionContext;
@@ -15,6 +16,10 @@ export interface Tool extends Capability {
   inputSchema: Record<string, unknown>;
 
   requiresApproval?: boolean | ((input: unknown, context: ToolContext) => boolean);
+
+  timeoutMs?: number;
+
+  retryPolicy?: Partial<RetryPolicy>;
 
   execute(input: unknown, context: ToolContext): Promise<ToolResult>;
 }

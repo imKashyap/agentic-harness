@@ -5,6 +5,7 @@ import { HarnessEventBus } from "../../events/event-bus.js";
 import { AgentDefinition, LLM, LLMResponse, Message, ToolDefinition } from "../../llm/types.js";
 import { MemoryManager } from "../../memory/long-term/memory-manager.js";
 import { ContextCompactor } from "../../memory/session/context-compactor.js";
+import { withTimeout } from "../../resilience/index.js";
 import { createLogger } from "../../utils/logger.js";
 import { ExecutionContext } from "../execution/execution-context.js";
 import { Orchestrator } from "../orchestration/orchestrator.js";
@@ -15,6 +16,7 @@ export interface AgentRunInput {
   sessionId?: string;
   history?: Message[];
   enableLongTermMemory?: boolean;
+  timeoutMs?: number;
 }
 
 export interface AgentRunResult {
@@ -24,6 +26,8 @@ export interface AgentRunResult {
 }
 
 const logger = createLogger("AgentRunner");
+
+export const DEFAULT_AGENT_TIMEOUT_MS = 300000; // 5 minutes
 
 export class AgentRunner {
   private readonly capabilityResolver: CapabilityResolver;
@@ -44,6 +48,19 @@ export class AgentRunner {
   }
 
   async run(
+    input: AgentRunInput,
+    context: ExecutionContext,
+    systemPrompt: string,
+  ): Promise<AgentRunResult> {
+    const timeoutMs = input.timeoutMs ?? DEFAULT_AGENT_TIMEOUT_MS;
+    return withTimeout(
+      async () => this.executeRunLoop(input, context, systemPrompt),
+      timeoutMs,
+      `Agent '${this.config.id}' run`,
+    );
+  }
+
+  private async executeRunLoop(
     input: AgentRunInput,
     context: ExecutionContext,
     systemPrompt: string,
