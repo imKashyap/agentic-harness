@@ -7,7 +7,6 @@ import {
   Bot,
   User,
   Brain,
-  Wrench,
   Users,
   AlertTriangle,
   RotateCcw,
@@ -735,45 +734,6 @@ export const Chat = () => {
                           {msg.reasoning}
                         </div>
                       )}
-                    </div>
-                  )}
-
-                  {/* Tool Call Cards */}
-                  {msg.toolCalls && msg.toolCalls.length > 0 && (
-                    <div className='space-y-1.5'>
-                      {msg.toolCalls.map((tc, tIdx) => (
-                        <div
-                          key={tIdx}
-                          className='p-2.5 rounded-lg border border-neutral-800 bg-neutral-900/60 text-xs space-y-1'
-                        >
-                          <div className='flex items-center justify-between'>
-                            <span className='font-mono font-bold text-amber-300 flex items-center gap-1.5'>
-                              <Wrench size={12} /> {tc.name}
-                            </span>
-                            <span
-                              className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
-                                tc.status === 'complete'
-                                  ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
-                                  : tc.status === 'failed'
-                                  ? 'bg-rose-500/10 text-rose-300 border border-rose-500/20'
-                                  : 'bg-amber-500/10 text-amber-300 border border-amber-500/20 animate-pulse'
-                              }`}
-                            >
-                              {tc.status || 'running'}
-                            </span>
-                          </div>
-                          {Boolean(tc.arguments) && (
-                            <div className='text-[11px] font-mono text-neutral-400 bg-neutral-950/60 p-1.5 rounded'>
-                              {JSON.stringify(tc.arguments)}
-                            </div>
-                          )}
-                          {tc.output !== undefined && (
-                            <div className='text-[11px] font-mono text-neutral-300 bg-neutral-950/80 p-1.5 rounded border border-neutral-800'>
-                              Result: {JSON.stringify(tc.output)}
-                            </div>
-                          )}
-                        </div>
-                      ))}
                     </div>
                   )}
 
