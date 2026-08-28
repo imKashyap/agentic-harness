@@ -10,6 +10,8 @@
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
     "dev": "tsx apps/api/server.ts",
+    "ui": "npm --prefix frontend run dev",
+    "ui:build": "npm --prefix frontend run build",
     "start:server": "tsx apps/api/server.ts",
     "start": "node dist/apps/api/server.js",
     "typecheck": "tsc --noEmit --project tsconfig.json",

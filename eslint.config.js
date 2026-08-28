@@ -8,6 +8,7 @@ export default tseslint.config(
   {
     ignores: [
       "dist/**",
+      "frontend/**",
       "node_modules/**",
       ".husky/**",
       ".vscode/**",

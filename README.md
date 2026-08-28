@@ -123,6 +123,9 @@ npm run dev
 # Production (compile, then run the compiled output)
 npm run build
 npm start
+
+# Launch the Web UI Console (React + Vite + Tailwind CSS)
+npm run ui
 ```
 
 Verify it's up:
@@ -131,7 +134,7 @@ Verify it's up:
 curl http://localhost:3000/health
 ```
 
-Then run agents, stream responses, manage sessions, and resolve HITL approvals entirely over HTTP — see the [HTTP API Reference](#-http-api-reference) and [`docs/api-spec.md`](./docs/api-spec.md).
+Open your browser at `http://localhost:5173` to explore the **Web UI Console & Agent Playground**.
 
 ---
 
