@@ -26,6 +26,7 @@ import { approveCheckpoint, rejectCheckpoint } from '../api/approvals';
 import { ExecutionTimeline } from '../components/ExecutionTimeline';
 import type { TimelineEvent } from '../components/ExecutionTimeline';
 import { JsonViewer } from '../components/JsonViewer';
+import { MarkdownRenderer } from '../components/MarkdownRenderer';
 
 interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -794,8 +795,8 @@ export const Chat = () => {
                           </div>
                           <div className='text-[11px] text-neutral-300'>Task: {sa.task}</div>
                           {sa.response && (
-                            <div className='p-2 rounded bg-neutral-950 text-neutral-200 text-xs border border-purple-500/20 whitespace-pre-wrap'>
-                              {sa.response}
+                            <div className='p-2.5 rounded bg-neutral-950 text-neutral-200 text-xs border border-purple-500/20'>
+                              <MarkdownRenderer content={sa.response} />
                             </div>
                           )}
                         </div>
@@ -835,20 +836,26 @@ export const Chat = () => {
 
                   {/* Main Message Content */}
                   <div
-                    className={`p-3.5 rounded-2xl text-xs leading-relaxed whitespace-pre-wrap ${
+                    className={`p-3.5 rounded-2xl text-xs leading-relaxed ${
                       msg.role === 'user'
-                        ? 'bg-blue-600 text-white rounded-tr-none shadow-md shadow-blue-600/10'
+                        ? 'bg-blue-600 text-white rounded-tr-none shadow-md shadow-blue-600/10 whitespace-pre-wrap'
                         : 'bg-neutral-900 border border-neutral-800/80 text-neutral-200 rounded-tl-none shadow-md'
                     }`}
                   >
-                    {msg.content || (state.status === 'running' && idx === state.messages.length - 1 ? (
-                      <span className='inline-flex items-center gap-1 text-neutral-400 italic'>
-                        <span className='w-1.5 h-1.5 rounded-full bg-indigo-400 animate-ping' />
-                        Thinking and streaming response...
-                      </span>
+                    {msg.role === 'assistant' ? (
+                      msg.content ? (
+                        <MarkdownRenderer content={msg.content} />
+                      ) : state.status === 'running' && idx === state.messages.length - 1 ? (
+                        <span className='inline-flex items-center gap-1 text-neutral-400 italic'>
+                          <span className='w-1.5 h-1.5 rounded-full bg-indigo-400 animate-ping' />
+                          Thinking and streaming response...
+                        </span>
+                      ) : (
+                        ''
+                      )
                     ) : (
-                      ''
-                    ))}
+                      msg.content
+                    )}
                   </div>
                 </div>
               </div>

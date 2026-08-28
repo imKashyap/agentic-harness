@@ -10,6 +10,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { getSessions, getSession, deleteSession } from '../api/sessions';
+import { MarkdownRenderer } from '../components/MarkdownRenderer';
 
 export const Sessions = () => {
   const queryClient = useQueryClient();
@@ -179,7 +180,11 @@ export const Sessions = () => {
                           {m.role === 'user' ? <User size={11} /> : <Bot size={11} />}
                           <span>{m.role}</span>
                         </div>
-                        <div className='whitespace-pre-wrap leading-relaxed'>{m.content}</div>
+                        {m.role === 'assistant' ? (
+                          <MarkdownRenderer content={m.content || ''} />
+                        ) : (
+                          <div className='whitespace-pre-wrap leading-relaxed'>{m.content}</div>
+                        )}
                       </div>
                     ))}
                   </div>
