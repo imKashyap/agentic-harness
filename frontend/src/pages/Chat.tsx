@@ -109,183 +109,288 @@ function chatReducer(state: ChatState, action: Action): ChatState {
 
     case 'SSE_EVENT': {
       const { event, data } = action;
-      const msgs = [...state.messages];
-      const lastMsg = msgs[msgs.length - 1];
-
-      // Build timeline event
-      let newTimelineEvent: TimelineEvent | null = null;
 
       switch (event) {
-        case 'token:delta':
-          if (lastMsg && lastMsg.role === 'assistant') {
-            lastMsg.content += data.delta || '';
-          }
-          break;
+        case 'token:delta': {
+          const deltaText = data?.delta || '';
+          if (!deltaText) return state;
 
-        case 'thought:delta':
-          if (lastMsg && lastMsg.role === 'assistant') {
-            lastMsg.reasoning = (lastMsg.reasoning || '') + (data.delta || '');
-          }
-          break;
+          const updatedMessages = state.messages.map((msg, i) => {
+            if (i === state.messages.length - 1 && msg.role === 'assistant') {
+              return {
+                ...msg,
+                content: msg.content + deltaText,
+              };
+            }
+            return msg;
+          });
+          return {
+            ...state,
+            messages: updatedMessages,
+          };
+        }
 
-        case 'tool:call':
-          if (lastMsg && lastMsg.role === 'assistant') {
-            const calls = (data.toolCalls || []).map((tc: any) => ({
-              id: tc.id,
-              name: tc.name,
-              arguments: tc.arguments,
-              status: 'running' as const,
-            }));
-            lastMsg.toolCalls = [...(lastMsg.toolCalls || []), ...calls];
-          }
-          newTimelineEvent = {
+        case 'thought:delta': {
+          const deltaText = data?.delta || '';
+          if (!deltaText) return state;
+
+          const updatedMessages = state.messages.map((msg, i) => {
+            if (i === state.messages.length - 1 && msg.role === 'assistant') {
+              return {
+                ...msg,
+                reasoning: (msg.reasoning || '') + deltaText,
+              };
+            }
+            return msg;
+          });
+          return {
+            ...state,
+            messages: updatedMessages,
+          };
+        }
+
+        case 'tool:call': {
+          const calls = (data?.toolCalls || []).map((tc: any) => ({
+            id: tc.id,
+            name: tc.name,
+            arguments: tc.arguments,
+            status: 'running' as const,
+          }));
+
+          const updatedMessages = state.messages.map((msg, i) => {
+            if (i === state.messages.length - 1 && msg.role === 'assistant') {
+              return {
+                ...msg,
+                toolCalls: [...(msg.toolCalls || []), ...calls],
+              };
+            }
+            return msg;
+          });
+
+          const newTimelineEvent: TimelineEvent = {
             type: 'tool:call',
-            label: `Tool called: ${data.toolCalls?.map((t: any) => t.name).join(', ')}`,
+            label: `Tool called: ${data?.toolCalls?.map((t: any) => t.name).join(', ')}`,
             timestamp: Date.now(),
             data,
           };
-          break;
 
-        case 'task:complete':
-          if (lastMsg && lastMsg.toolCalls) {
-            const match = lastMsg.toolCalls.find((tc) => tc.id === data.taskId || tc.name === data.capability);
-            if (match) {
-              match.status = 'complete';
-              match.output = data.output;
+          return {
+            ...state,
+            messages: updatedMessages,
+            events: [...state.events, newTimelineEvent],
+          };
+        }
+
+        case 'task:complete': {
+          const updatedMessages = state.messages.map((msg, i) => {
+            if (i === state.messages.length - 1 && msg.role === 'assistant' && msg.toolCalls) {
+              return {
+                ...msg,
+                toolCalls: msg.toolCalls.map((tc) =>
+                  tc.id === data?.taskId || tc.name === data?.capability
+                    ? { ...tc, status: 'complete' as const, output: data?.output }
+                    : tc
+                ),
+              };
             }
-          }
-          newTimelineEvent = {
+            return msg;
+          });
+
+          const newTimelineEvent: TimelineEvent = {
             type: 'task:complete',
-            label: `Task completed: ${data.capability}`,
-            durationMs: data.durationMs,
+            label: `Task completed: ${data?.capability}`,
+            durationMs: data?.durationMs,
             timestamp: Date.now(),
             data,
           };
-          break;
 
-        case 'task:failed':
-          if (lastMsg && lastMsg.toolCalls) {
-            const match = lastMsg.toolCalls.find((tc) => tc.id === data.taskId || tc.name === data.capability);
-            if (match) {
-              match.status = 'failed';
-              match.output = data.error;
+          return {
+            ...state,
+            messages: updatedMessages,
+            events: [...state.events, newTimelineEvent],
+          };
+        }
+
+        case 'task:failed': {
+          const updatedMessages = state.messages.map((msg, i) => {
+            if (i === state.messages.length - 1 && msg.role === 'assistant' && msg.toolCalls) {
+              return {
+                ...msg,
+                toolCalls: msg.toolCalls.map((tc) =>
+                  tc.id === data?.taskId || tc.name === data?.capability
+                    ? { ...tc, status: 'failed' as const, output: data?.error }
+                    : tc
+                ),
+              };
             }
-          }
-          newTimelineEvent = {
+            return msg;
+          });
+
+          const newTimelineEvent: TimelineEvent = {
             type: 'task:failed',
-            label: `Task failed: ${data.capability}`,
-            durationMs: data.durationMs,
+            label: `Task failed: ${data?.capability}`,
+            durationMs: data?.durationMs,
             timestamp: Date.now(),
             data,
           };
-          break;
 
-        case 'subagent:delegated':
-          if (lastMsg && lastMsg.role === 'assistant') {
-            lastMsg.subAgents = [
-              ...(lastMsg.subAgents || []),
-              { id: data.subAgentId, task: data.task, status: 'running' },
-            ];
-          }
-          newTimelineEvent = {
-            type: 'subagent:delegated',
-            label: `Delegated to sub-agent: ${data.subAgentId}`,
-            timestamp: Date.now(),
-            data,
+          return {
+            ...state,
+            messages: updatedMessages,
+            events: [...state.events, newTimelineEvent],
           };
-          break;
+        }
 
-        case 'subagent:completed':
-          if (lastMsg && lastMsg.subAgents) {
-            const match = lastMsg.subAgents.find((sa) => sa.id === data.subAgentId);
-            if (match) {
-              match.status = 'complete';
-              match.response = data.response;
+        case 'subagent:delegated': {
+          const updatedMessages = state.messages.map((msg, i) => {
+            if (i === state.messages.length - 1 && msg.role === 'assistant') {
+              return {
+                ...msg,
+                subAgents: [
+                  ...(msg.subAgents || []),
+                  { id: data?.subAgentId, task: data?.task, status: 'running' as const },
+                ],
+              };
             }
-          }
-          newTimelineEvent = {
+            return msg;
+          });
+
+          const newTimelineEvent: TimelineEvent = {
+            type: 'subagent:delegated',
+            label: `Delegated to sub-agent: ${data?.subAgentId}`,
+            timestamp: Date.now(),
+            data,
+          };
+
+          return {
+            ...state,
+            messages: updatedMessages,
+            events: [...state.events, newTimelineEvent],
+          };
+        }
+
+        case 'subagent:completed': {
+          const updatedMessages = state.messages.map((msg, i) => {
+            if (i === state.messages.length - 1 && msg.role === 'assistant' && msg.subAgents) {
+              return {
+                ...msg,
+                subAgents: msg.subAgents.map((sa) =>
+                  sa.id === data?.subAgentId
+                    ? { ...sa, status: 'complete' as const, response: data?.response }
+                    : sa
+                ),
+              };
+            }
+            return msg;
+          });
+
+          const newTimelineEvent: TimelineEvent = {
             type: 'subagent:completed',
-            label: `Sub-agent completed: ${data.subAgentId}`,
-            durationMs: data.durationMs,
+            label: `Sub-agent completed: ${data?.subAgentId}`,
+            durationMs: data?.durationMs,
             timestamp: Date.now(),
             data,
           };
-          break;
 
-        case 'memory:recalled':
-          if (lastMsg && lastMsg.role === 'assistant') {
-            lastMsg.recalledMemories = [
-              ...(lastMsg.recalledMemories || []),
-              `Recalled ${data.matchCount} memory items for: "${data.query}"`,
-            ];
-          }
-          newTimelineEvent = {
+          return {
+            ...state,
+            messages: updatedMessages,
+            events: [...state.events, newTimelineEvent],
+          };
+        }
+
+        case 'memory:recalled': {
+          const updatedMessages = state.messages.map((msg, i) => {
+            if (i === state.messages.length - 1 && msg.role === 'assistant') {
+              return {
+                ...msg,
+                recalledMemories: [
+                  ...(msg.recalledMemories || []),
+                  `Recalled ${data?.matchCount} memory items for: "${data?.query}"`,
+                ],
+              };
+            }
+            return msg;
+          });
+
+          const newTimelineEvent: TimelineEvent = {
             type: 'memory:recalled',
-            label: `Memory recalled (${data.matchCount} matches)`,
+            label: `Memory recalled (${data?.matchCount} matches)`,
             timestamp: Date.now(),
             data,
           };
-          break;
 
-        case 'hitl:approval_required':
-          if (lastMsg && lastMsg.role === 'assistant') {
-            lastMsg.pendingApproval = {
-              approvalToken: data.approvalToken,
-              capability: data.capability,
-              input: data.input,
-            };
-          }
-          newTimelineEvent = {
+          return {
+            ...state,
+            messages: updatedMessages,
+            events: [...state.events, newTimelineEvent],
+          };
+        }
+
+        case 'hitl:approval_required': {
+          const updatedMessages = state.messages.map((msg, i) => {
+            if (i === state.messages.length - 1 && msg.role === 'assistant') {
+              return {
+                ...msg,
+                pendingApproval: {
+                  approvalToken: data?.approvalToken,
+                  capability: data?.capability,
+                  input: data?.input,
+                },
+              };
+            }
+            return msg;
+          });
+
+          const newTimelineEvent: TimelineEvent = {
             type: 'hitl:approval_required',
-            label: `Approval required for: ${data.capability}`,
+            label: `Approval required for: ${data?.capability}`,
             timestamp: Date.now(),
             data,
           };
-          break;
 
-        case 'run:end':
+          return {
+            ...state,
+            messages: updatedMessages,
+            events: [...state.events, newTimelineEvent],
+          };
+        }
+
+        case 'run:end': {
+          const newTimelineEvent: TimelineEvent = {
+            type: 'run:end',
+            label: `Run finished (${data?.durationMs || 0}ms)`,
+            durationMs: data?.durationMs,
+            timestamp: Date.now(),
+            data,
+          };
+
           return {
             ...state,
             status: 'completed',
-            messages: msgs,
-            events: [
-              ...state.events,
-              {
-                type: 'run:end',
-                label: `Run finished (${data.durationMs || 0}ms)`,
-                durationMs: data.durationMs,
-                timestamp: Date.now(),
-                data,
-              },
-            ],
+            events: [...state.events, newTimelineEvent],
+          };
+        }
+
+        case 'run:error': {
+          const newTimelineEvent: TimelineEvent = {
+            type: 'run:error',
+            label: `Error: ${data?.error || 'Execution failed'}`,
+            timestamp: Date.now(),
+            data,
           };
 
-        case 'run:error':
           return {
             ...state,
             status: 'error',
-            error: data.error || 'Unknown error occurred during agent run',
-            messages: msgs,
-            events: [
-              ...state.events,
-              {
-                type: 'run:error',
-                label: `Error: ${data.error || 'Execution failed'}`,
-                timestamp: Date.now(),
-                data,
-              },
-            ],
+            error: data?.error || 'Unknown error occurred during agent run',
+            events: [...state.events, newTimelineEvent],
           };
+        }
 
         default:
-          break;
+          return state;
       }
-
-      return {
-        ...state,
-        messages: msgs,
-        events: newTimelineEvent ? [...state.events, newTimelineEvent] : state.events,
-      };
     }
 
     case 'SELECT_EVENT': {
