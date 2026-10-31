@@ -5,7 +5,8 @@ flowchart TD
     ACL --> FP["FilePromptProvider<br/>('./prompts/agents')"]
 
     AC --> AF["AgentFactory.create(config)"]
-    AF --> LF["LLMFactory.create(config.model)"]
+    AF --> MC["ModelCatalog.resolve(config.model)<br/>(config/models.yaml)"]
+    MC --> LF["LLMFactory.create(resolved model)"]
     LF --> LLM["LLM adapter"]
     AF --> AR["AgentRunner"]
     AF --> AG["Agent"]

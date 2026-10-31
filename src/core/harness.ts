@@ -20,6 +20,9 @@ import { HarnessEventBus } from "../events/event-bus.js";
 import { HarnessEvent } from "../events/types.js";
 import { ApprovalManager } from "../hitl/approval-manager.js";
 import type { Checkpoint, CheckpointStore } from "../hitl/types.js";
+import type { MessageBus } from "../infrastructure/messaging/message-bus.js";
+import type { RelationalDb } from "../infrastructure/postgres/postgres-store.js";
+import type { KeyValueStore } from "../infrastructure/redis/redis-store.js";
 import { MemoryManager } from "../memory/long-term/memory-manager.js";
 import type { LongTermMemoryStore } from "../memory/long-term/memory-store.js";
 import { ContextCompactor } from "../memory/session/context-compactor.js";
@@ -42,6 +45,7 @@ const logger = createLogger("AgentHarness");
 
 export interface HarnessOptions {
   agentsDir?: string;
+  modelsConfigPath?: string;
   skillsDir?: string;
   promptsDir?: string;
   tools?: Tool[];
@@ -54,6 +58,9 @@ export interface HarnessOptions {
   eventBus?: HarnessEventBus;
   checkpointStore?: CheckpointStore;
   approvalManager?: ApprovalManager;
+  relationalDb?: RelationalDb;
+  keyValueStore?: KeyValueStore;
+  messageBus?: MessageBus;
 }
 
 export interface RunAgentOptions {
@@ -89,7 +96,6 @@ export class AgentHarness {
     const capabilityRegistry = container.get<CapabilityRegistry>(TYPES.CapabilityRegistry);
     const memoryManager = container.get<MemoryManager>(TYPES.MemoryManager);
     const configLoader = container.get<AgentConfigLoader>(TYPES.AgentConfigLoader);
-
     const agentsDir = options.agentsDir ?? "./agents";
     const skillsDir = options.skillsDir ?? "./skills";
     const tools = options.tools ?? [new CalculatorTool()];
@@ -114,20 +120,19 @@ export class AgentHarness {
     const harness = container.get<AgentHarness>(TYPES.AgentHarness);
     harness.container = container;
 
-    // Load available agent configs
-    try {
-      const defaultAgentConfig = await configLoader.load(`${agentsDir}/default-agent/agent.json`);
-      harness.registerAgent(defaultAgentConfig);
-    } catch {
-      logger.debug("No default-agent config found in agents directory");
-    }
-
-    try {
-      const researcherAgentConfig = await configLoader.load(`${agentsDir}/researcher/agent.json`);
-      harness.registerAgent(researcherAgentConfig);
-    } catch {
-      logger.debug("No researcher agent config found in agents directory");
-    }
+    // Load the built-in agent configs when present.
+    await registerAgentConfigIfPresent(
+      configLoader,
+      harness,
+      `${agentsDir}/default-agent/agent.json`,
+      "default-agent",
+    );
+    await registerAgentConfigIfPresent(
+      configLoader,
+      harness,
+      `${agentsDir}/researcher/agent.json`,
+      "researcher",
+    );
 
     logger.info("AgentHarness initialized successfully via Inversify container");
     return harness;
@@ -317,5 +322,33 @@ export class AgentHarness {
     for await (const event of stream) {
       yield event;
     }
+  }
+
+  // ─────────────────────────────────────
+  // Event Subscription Facade
+  // ─────────────────────────────────────
+
+  onEvent(event: HarnessEvent["type"], handler: (data: unknown) => void): void {
+    if (this.eventBus) {
+      this.eventBus.on(event, handler);
+    }
+  }
+}
+
+async function registerAgentConfigIfPresent(
+  configLoader: AgentConfigLoader,
+  harness: AgentHarness,
+  path: string,
+  agentId: string,
+): Promise<void> {
+  try {
+    harness.registerAgent(await configLoader.load(path));
+  } catch (error) {
+    const cause = error instanceof Error ? error.cause : undefined;
+    if (cause instanceof Error && "code" in cause && cause.code === "ENOENT") {
+      logger.debug(`No ${agentId} config found at '${path}'`);
+      return;
+    }
+    throw error;
   }
 }

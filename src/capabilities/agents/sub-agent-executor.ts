@@ -8,6 +8,7 @@ import {
   CapabilityExecutionRequest,
   CapabilityExecutionResult,
   CapabilityExecutor,
+  resolveCapabilityStringField,
 } from "../dispatch/capability-executor.js";
 import { AgentCapability } from "./agent-capability.js";
 
@@ -25,33 +26,7 @@ export class SubAgentExecutor implements CapabilityExecutor {
     const rawAgentId = capability?.agentId ?? request.name.replace(/^agent\./, "");
     logger.info(`Delegating task to sub-agent '${rawAgentId}' (runId: ${context.runId})`);
 
-    let task: string | undefined;
-    if (typeof request.input === "string") {
-      try {
-        const parsed = JSON.parse(request.input) as unknown;
-        if (typeof parsed === "object" && parsed !== null) {
-          const rec = parsed as Record<string, unknown>;
-          task =
-            typeof rec.task === "string"
-              ? rec.task
-              : typeof rec.message === "string"
-                ? rec.message
-                : undefined;
-        } else {
-          task = request.input;
-        }
-      } catch {
-        task = request.input;
-      }
-    } else if (typeof request.input === "object" && request.input !== null) {
-      const rec = request.input as Record<string, unknown>;
-      task =
-        typeof rec.task === "string"
-          ? rec.task
-          : typeof rec.message === "string"
-            ? rec.message
-            : undefined;
-    }
+    const task = resolveCapabilityStringField(request.input, "task", "message");
 
     if (!task || task.trim().length === 0) {
       logger.warn(`Sub-agent delegation to '${rawAgentId}' rejected: empty task`);

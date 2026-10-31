@@ -18,7 +18,7 @@ export class AgentConfigLoader {
     } catch (error) {
       const message = `Failed to read agent config file at '${path}': ${error instanceof Error ? error.message : String(error)}`;
       logger.error(message);
-      throw new Error(message);
+      throw new Error(message, { cause: error });
     }
 
     let rawConfig: unknown;

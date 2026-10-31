@@ -312,6 +312,12 @@ export class WeatherTool implements Tool {
 }
 ```
 
+The agent config selects a provider and model ID only. Provider endpoints and
+model metadata (such as context length and generation defaults) are resolved from
+[`config/models.yaml`](./config/models.yaml) when the harness starts. A model
+reference must match an entry under that provider; provider API keys remain
+environment variables.
+
 ---
 
 ## 🧪 Development & Verification
@@ -336,24 +342,12 @@ npm run build
 
 ## 🐞 VS Code Debugging
 
-### 1. Launch Configurations (`.vscode/launch.json`)
-
-- **`Debug: API Server`**: Start the Hono server (`apps/api/server.ts`) with full source mapping and breakpoints enabled.
-- **`Debug: Current Test File`**: Debug the active test file directly in VS Code.
-- **`Debug: Integration Tests (API)`**: Run and debug the API server integration suite (`tests/integration/api.test.ts`).
-- **`Debug: Guardrails & Context Tests`**: Debug input/output guardrails, policy engine, token managers, and memory suites.
-- **`Debug: Orchestration Tests`**: Debug DAG dependency graphs, cycle detection, and parallel execution.
-- **`Debug: All Test Suites`**: Run all test suites under the debugger.
-
-### 2. 1-Click Scenario Execution (`requests.http` & `.vscode/tasks.json`)
-
-When debugging the running server:
-
-1. Start the debugger with **`Debug: API Server`** (`F5`).
-2. Place breakpoints in route handlers (`apps/api/routes/`), agent runner (`src/core/agent/`), orchestrator (`src/core/orchestration/`), or memory (`src/context/`).
-3. Send requests via:
-   - **`requests.http`**: Click **"Send Request"** directly above any scenario in VS Code.
-   - **VS Code Tasks**: Run `Cmd+Shift+P` / `Ctrl+Shift+P` $\rightarrow$ `Tasks: Run Task` $\rightarrow$ `Scenario: Tool Calling`, `Scenario: Agent Delegation`, `Scenario: Search Memory`, or `Scenario: Streaming Tokens`.
+Use **Run and Debug → Debug API Server** (or press **F5**) to launch
+[`apps/api/server.ts`](./apps/api/server.ts) with the TypeScript source loaded by
+`tsx`. Set breakpoints in `apps/api/routes/`, `src/core/agent/`, or
+`src/core/orchestration/`, then send a request from [`requests.http`](./requests.http)
+or your HTTP client to step through a run. Live model requests require the
+appropriate provider API key in `.env`.
 
 ---
 

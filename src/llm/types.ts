@@ -34,6 +34,12 @@ export interface LLMRequest {
   temperature?: number;
   maxTokens?: number;
   topP?: number;
+  tokenParamName?: "max_tokens" | "max_completion_tokens";
+  frequencyPenalty?: number;
+  presencePenalty?: number;
+  stop?: string[];
+  reasoningEffort?: "low" | "medium" | "high";
+  additionalParams?: Record<string, unknown>;
 }
 
 export interface LLMResponse {

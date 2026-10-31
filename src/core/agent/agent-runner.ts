@@ -2,6 +2,7 @@ import { CapabilityRegistry } from "../../capabilities/capability-registry.js";
 import { CapabilityResolver } from "../../capabilities/resolution/capability-resolver.js";
 import { AgentExecutionError } from "../../errors/orchestration-errors.js";
 import { HarnessEventBus } from "../../events/event-bus.js";
+import { ConfigCache } from "../../llm/configuration/config-cache.js";
 import { AgentDefinition, LLM, LLMResponse, Message, ToolDefinition } from "../../llm/types.js";
 import { MemoryManager } from "../../memory/long-term/memory-manager.js";
 import { ContextCompactor } from "../../memory/session/context-compactor.js";
@@ -9,7 +10,7 @@ import { withTimeout } from "../../resilience/index.js";
 import { createLogger } from "../../utils/logger.js";
 import { ExecutionContext } from "../execution/execution-context.js";
 import { Orchestrator } from "../orchestration/orchestrator.js";
-import { AgentConfig } from "./agent-config.js";
+import { RuntimeAgentConfig } from "./agent-config.js";
 
 export interface AgentRunInput {
   message: string;
@@ -34,7 +35,7 @@ export class AgentRunner {
   private readonly contextCompactor: ContextCompactor;
 
   constructor(
-    private readonly config: AgentConfig,
+    private readonly config: RuntimeAgentConfig,
     private readonly llm: LLM,
     private readonly capabilityRegistry: CapabilityRegistry,
     private readonly orchestrator: Orchestrator,
@@ -42,6 +43,7 @@ export class AgentRunner {
     private readonly memoryManager?: MemoryManager,
     contextCompactor?: ContextCompactor,
     private readonly eventBus?: HarnessEventBus,
+    private readonly configCache?: ConfigCache,
   ) {
     this.capabilityResolver = capabilityResolver ?? new CapabilityResolver();
     this.contextCompactor = contextCompactor ?? new ContextCompactor();
@@ -79,6 +81,15 @@ export class AgentRunner {
       input: input.message,
       timestamp: startTime,
     });
+
+    // Pin configuration on ExecutionContext for duration of this run/DAG
+    if (this.configCache) {
+      try {
+        this.configCache.resolve(this.config.id, context);
+      } catch (err) {
+        logger.debug(`ConfigCache pinning skipped: ${String(err)}`);
+      }
+    }
 
     try {
       // 1. Resolve skills

@@ -8,12 +8,12 @@ export const GenerationConfigSchema = z.object({
   presencePenalty: z.number().optional(),
 });
 
-export const ModelConfigSchema = z.object({
-  provider: z.string().min(1),
-  model: z.string().min(1),
-
-  generation: GenerationConfigSchema.optional(),
-});
+export const ModelConfigSchema = z
+  .object({
+    provider: z.string().min(1),
+    model: z.string().min(1),
+  })
+  .strict();
 
 export const PromptConfigSchema = z.object({
   id: z.string().min(1),
@@ -37,4 +37,12 @@ export const AgentConfigSchema = z.object({
 export type AgentConfig = z.infer<typeof AgentConfigSchema>;
 export type ModelConfig = z.infer<typeof ModelConfigSchema>;
 export type GenerationConfig = z.infer<typeof GenerationConfigSchema>;
+export type RuntimeModelConfig = ModelConfig & {
+  baseURL?: string;
+  contextLength?: number;
+  generation?: GenerationConfig;
+};
+export type RuntimeAgentConfig = Omit<AgentConfig, "model"> & {
+  model: RuntimeModelConfig;
+};
 export type PromptConfig = z.infer<typeof PromptConfigSchema>;

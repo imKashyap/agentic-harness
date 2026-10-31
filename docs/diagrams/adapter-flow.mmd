@@ -1,17 +1,24 @@
 sequenceDiagram
-    participant AR as AgentRunner
+    participant AF as AgentFactory
+    participant MC as ModelCatalog
     participant LF as LLMFactory
+    participant AR as AgentRunner
     participant LLM as LLM (interface)
-    participant Adapter as OpenRouterLLM / MockLLM
+    participant Adapter as Provider adapter
     participant API as Provider API
 
-    AR->>LF: create(config.model)
+    AF->>MC: resolve(provider, model ID)
+    MC-->>AF: baseURL, contextLength, generation defaults
+    AF->>LF: create(resolved model config)
     alt provider = "mock"
         LF->>Adapter: new MockLLM()
     else provider = "openrouter"
-        LF->>Adapter: new OpenRouterLLM(model)
+        LF->>Adapter: new OpenRouterLLM(model, baseURL)
+    else provider = "openai" or "anthropic"
+        LF->>Adapter: create provider adapter(model, baseURL)
     end
-    LF-->>AR: LLM instance
+    LF-->>AF: LLM instance
+    AF-->>AR: configured agent
 
     loop agent iteration (max 10)
         AR->>LLM: chat({ messages, tools, agents, model, temperature, maxTokens, topP })

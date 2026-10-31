@@ -3,11 +3,13 @@ import { inject, injectable } from "inversify";
 import { ExecutionContext } from "../../core/execution/execution-context.js";
 import { TYPES } from "../../di/types.js";
 import { createLogger } from "../../utils/logger.js";
+import { Capability } from "../capability.js";
 import { CapabilityRegistry } from "../capability-registry.js";
 import {
   CapabilityExecutionRequest,
   CapabilityExecutionResult,
   CapabilityExecutor,
+  normalizeCapabilityInput,
 } from "../dispatch/capability-executor.js";
 import { ToolExecutor } from "./tool-executor.js";
 
@@ -23,17 +25,11 @@ export class ToolCapabilityExecutor implements CapabilityExecutor {
   async execute(
     request: CapabilityExecutionRequest,
     context: ExecutionContext,
+    _capability?: Capability,
   ): Promise<CapabilityExecutionResult> {
     logger.debug(`Executing tool capability request: '${request.name}'`);
 
-    let input = request.input;
-    if (typeof input === "string") {
-      try {
-        input = JSON.parse(input);
-      } catch {
-        // retain string input
-      }
-    }
+    const input = normalizeCapabilityInput(request.input);
 
     try {
       const tool = this.registry.getTool(request.name);

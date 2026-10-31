@@ -7,29 +7,36 @@ const logger = createLogger("OpenRouterLLM");
 
 export interface OpenRouterOptions {
   model?: string;
+  baseURL?: string;
+  apiKey?: string;
   timeoutMs?: number;
   maxRetries?: number;
 }
 
 export class OpenRouterLLM implements LLM {
   private readonly model: string;
+  private readonly baseURL: string;
+  private readonly apiKey?: string;
   private readonly timeoutMs: number;
   private readonly maxRetries: number;
 
   constructor(modelOrOptions: string | OpenRouterOptions = "google/gemini-2.0-flash-001") {
     if (typeof modelOrOptions === "string") {
       this.model = modelOrOptions;
+      this.baseURL = "https://openrouter.ai/api/v1";
       this.timeoutMs = 60000;
       this.maxRetries = 3;
     } else {
       this.model = modelOrOptions.model ?? "google/gemini-2.0-flash-001";
+      this.baseURL = modelOrOptions.baseURL ?? "https://openrouter.ai/api/v1";
+      this.apiKey = modelOrOptions.apiKey;
       this.timeoutMs = modelOrOptions.timeoutMs ?? 60000;
       this.maxRetries = modelOrOptions.maxRetries ?? 3;
     }
   }
 
   async chat(request: LLMRequest): Promise<LLMResponse> {
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    const apiKey = this.apiKey || process.env.OPENROUTER_API_KEY;
 
     if (!apiKey) {
       logger.error("OPENROUTER_API_KEY is not configured in environment");
@@ -38,14 +45,24 @@ export class OpenRouterLLM implements LLM {
 
     const effectiveModel = request.model ?? this.model;
     const toolDefinitions = this.buildToolDefinitions(request);
+    const tokenField = request.tokenParamName ?? "max_tokens";
 
     const payload: Record<string, unknown> = {
       model: effectiveModel,
       messages: request.messages.map((message) => this.mapMessage(message)),
       ...(toolDefinitions.length > 0 ? { tools: toolDefinitions } : {}),
       ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
-      ...(request.maxTokens !== undefined ? { max_tokens: request.maxTokens } : {}),
+      ...(request.maxTokens !== undefined ? { [tokenField]: request.maxTokens } : {}),
       ...(request.topP !== undefined ? { top_p: request.topP } : {}),
+      ...(request.frequencyPenalty !== undefined
+        ? { frequency_penalty: request.frequencyPenalty }
+        : {}),
+      ...(request.presencePenalty !== undefined
+        ? { presence_penalty: request.presencePenalty }
+        : {}),
+      ...(request.stop ? { stop: request.stop } : {}),
+      ...(request.reasoningEffort ? { reasoning_effort: request.reasoningEffort } : {}),
+      ...(request.additionalParams ?? {}),
     };
 
     logger.info(
@@ -59,7 +76,7 @@ export class OpenRouterLLM implements LLM {
             const startTime = Date.now();
             let response: Response;
             try {
-              response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+              response = await fetch(`${this.baseURL.replace(/\/+$/, "")}/chat/completions`, {
                 method: "POST",
                 headers: {
                   Authorization: `Bearer ${apiKey}`,
@@ -160,7 +177,7 @@ export class OpenRouterLLM implements LLM {
   }
 
   async *chatStream(request: LLMRequest): AsyncIterable<LLMStreamChunk> {
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    const apiKey = this.apiKey || process.env.OPENROUTER_API_KEY;
 
     if (!apiKey) {
       throw new HarnessError("OPENROUTER_API_KEY is not configured", "MISSING_API_KEY", 401);
@@ -168,6 +185,7 @@ export class OpenRouterLLM implements LLM {
 
     const effectiveModel = request.model ?? this.model;
     const toolDefinitions = this.buildToolDefinitions(request);
+    const tokenField = request.tokenParamName ?? "max_tokens";
 
     const payload: Record<string, unknown> = {
       model: effectiveModel,
@@ -175,13 +193,22 @@ export class OpenRouterLLM implements LLM {
       stream: true,
       ...(toolDefinitions.length > 0 ? { tools: toolDefinitions } : {}),
       ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
-      ...(request.maxTokens !== undefined ? { max_tokens: request.maxTokens } : {}),
+      ...(request.maxTokens !== undefined ? { [tokenField]: request.maxTokens } : {}),
       ...(request.topP !== undefined ? { top_p: request.topP } : {}),
+      ...(request.frequencyPenalty !== undefined
+        ? { frequency_penalty: request.frequencyPenalty }
+        : {}),
+      ...(request.presencePenalty !== undefined
+        ? { presence_penalty: request.presencePenalty }
+        : {}),
+      ...(request.stop ? { stop: request.stop } : {}),
+      ...(request.reasoningEffort ? { reasoning_effort: request.reasoningEffort } : {}),
+      ...(request.additionalParams ?? {}),
     };
 
     logger.info(`Starting streaming chat with OpenRouter (model: ${effectiveModel})`);
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const response = await fetch(`${this.baseURL.replace(/\/+$/, "")}/chat/completions`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,

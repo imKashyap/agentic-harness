@@ -1,20 +1,47 @@
-providers:
-  openrouter:
-    baseURL: https://openrouter.ai/api/v1
-    models:
-      - id: google/gemini-2.0-flash-001
-        contextLength: 1048576
-      - id: meta-llama/llama-3.3-70b-instruct
-        contextLength: 131072
-  openai:
-    baseURL: https://api.openai.com/v1
-    models:
-      - id: gpt-4o
-        contextLength: 128000
-      - id: gpt-4o-mini
-        contextLength: 128000
-  anthropic:
-    baseURL: https://api.anthropic.com/v1
-    models:
-      - id: claude-3-5-sonnet-20241022
-        contextLength: 200000
+models:
+  - id: openrouter/gemma
+    name: Gemma 4 31B IT (OpenRouter)
+    providerId: openrouter
+    modelId: gemma-4-31b-it
+    defaultGeneration:
+      temperature: 0.7
+      maxTokens: 1024
+
+  - id: openrouter/gemini-2.0-flash-001
+    name: Gemini 2.0 Flash 001
+    providerId: openrouter
+    modelId: google/gemini-2.0-flash-001
+    contextLength: 1048576
+
+  - id: openrouter/llama-3.3-70b-instruct
+    name: Llama 3.3 70B Instruct
+    providerId: openrouter
+    modelId: meta-llama/llama-3.3-70b-instruct
+    contextLength: 131072
+
+  - id: openai/gpt-4o
+    name: GPT-4o
+    providerId: openai
+    modelId: gpt-4o
+    contextLength: 128000
+
+  - id: openai/gpt-4o-mini
+    name: GPT-4o Mini
+    providerId: openai
+    modelId: gpt-4o-mini
+    contextLength: 128000
+
+  - id: anthropic/claude-3-5-sonnet-20241022
+    name: Claude 3.5 Sonnet
+    providerId: anthropic
+    modelId: claude-3-5-sonnet-20241022
+    contextLength: 200000
+
+  - id: mock/mock-model
+    name: Mock Model
+    providerId: mock
+    modelId: mock-model
+    capabilities:
+      supportsTemperature: true
+      supportsTopP: true
+      tokenParamName: max_tokens

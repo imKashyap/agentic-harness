@@ -27,8 +27,16 @@ export const TYPES = {
   TracingService: Symbol.for("TracingService"),
   MetricsService: Symbol.for("MetricsService"),
 
-  // LLM & Routing
+  // LLM & Routing & Dynamic Configuration
   ModelRouter: Symbol.for("ModelRouter"),
+  ModelCatalog: Symbol.for("ModelCatalog"),
+  ProviderRegistry: Symbol.for("ProviderRegistry"),
+  ModelRegistry: Symbol.for("ModelRegistry"),
+  InferenceProfileRegistry: Symbol.for("InferenceProfileRegistry"),
+  AgentModelConfigRegistry: Symbol.for("AgentModelConfigRegistry"),
+  ModelConfigResolver: Symbol.for("ModelConfigResolver"),
+  ConfigCache: Symbol.for("ConfigCache"),
+  PostgresConfigStore: Symbol.for("PostgresConfigStore"),
 
   // Capabilities & Executors
   ToolExecutor: Symbol.for("ToolExecutor"),

@@ -1,0 +1,20 @@
+agents:
+  - agentId: planner
+    modelId: openrouter/gemma
+    inferenceProfileId: planner_default
+
+  - agentId: executor
+    modelId: openrouter/gemma
+    inferenceProfileId: executor_default
+
+  - agentId: summarizer
+    modelId: openrouter/gemma
+    inferenceProfileId: summarizer_default
+
+  - agentId: default-agent
+    modelId: openrouter/gemma
+    inferenceProfileId: planner_default
+
+  - agentId: researcher
+    modelId: openrouter/gemma
+    inferenceProfileId: executor_default

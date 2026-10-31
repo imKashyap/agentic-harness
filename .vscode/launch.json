@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug Agentic Server",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "--inspect",
+        "--import",
+        "tsx"
+      ],
+      "program": "${workspaceFolder}/apps/api/server.ts",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "sourceMaps": true,
+      "skipFiles": [
+        "<node_internals>/**"
+      ]
+    }
+  ]
+}

@@ -34,7 +34,15 @@ import { InMemoryCheckpointStore } from "../hitl/checkpoint-store.js";
 import { InMemoryMessageBus } from "../infrastructure/messaging/message-bus.js";
 import { MockPostgresStore } from "../infrastructure/postgres/postgres-store.js";
 import { InMemoryRedisStore } from "../infrastructure/redis/redis-store.js";
+import { AgentModelConfigRegistry } from "../llm/configuration/agent-config-registry.js";
+import { ConfigCache } from "../llm/configuration/config-cache.js";
+import { InferenceProfileRegistry } from "../llm/configuration/inference-profile-registry.js";
+import { ModelConfigResolver } from "../llm/configuration/model-config-resolver.js";
+import { ModelRegistry } from "../llm/configuration/model-registry.js";
+import { PostgresConfigStore } from "../llm/configuration/postgres-config-store.js";
+import { ProviderRegistry } from "../llm/configuration/provider-registry.js";
 import { LLMFactory } from "../llm/llm-factory.js";
+import { ModelCatalog } from "../llm/model-catalog.js";
 import { ModelRouter } from "../llm/model-router.js";
 import { ContextCompactor } from "../memory/session/context-compactor.js";
 import { InMemorySessionStore } from "../memory/session/in-memory-session-store.js";
@@ -46,6 +54,31 @@ import { TYPES } from "./types.js";
 
 export function createHarnessContainer(options: HarnessOptions = {}): Container {
   const container = new Container({ defaultScope: "Singleton" });
+  const modelCatalog = new ModelCatalog(options.modelsConfigPath ?? "./config/models.yaml");
+  container.bind(TYPES.ModelCatalog).toConstantValue(modelCatalog);
+  container.bind(ModelCatalog).toConstantValue(modelCatalog);
+
+  // Dynamic Configuration Registries & Resolvers
+  container.bind(TYPES.ProviderRegistry).toConstantValue(modelCatalog.providerRegistry);
+  container.bind(ProviderRegistry).toConstantValue(modelCatalog.providerRegistry);
+
+  container.bind(TYPES.ModelRegistry).toConstantValue(modelCatalog.modelRegistry);
+  container.bind(ModelRegistry).toConstantValue(modelCatalog.modelRegistry);
+
+  container.bind(TYPES.InferenceProfileRegistry).toConstantValue(modelCatalog.profileRegistry);
+  container.bind(InferenceProfileRegistry).toConstantValue(modelCatalog.profileRegistry);
+
+  container.bind(TYPES.AgentModelConfigRegistry).toConstantValue(modelCatalog.agentConfigRegistry);
+  container.bind(AgentModelConfigRegistry).toConstantValue(modelCatalog.agentConfigRegistry);
+
+  container.bind(TYPES.ModelConfigResolver).toConstantValue(modelCatalog.resolver);
+  container.bind(ModelConfigResolver).toConstantValue(modelCatalog.resolver);
+
+  container.bind(TYPES.PostgresConfigStore).to(PostgresConfigStore).inSingletonScope();
+  container.bind(PostgresConfigStore).to(PostgresConfigStore).inSingletonScope();
+
+  container.bind(TYPES.ConfigCache).to(ConfigCache).inSingletonScope();
+  container.bind(ConfigCache).to(ConfigCache).inSingletonScope();
 
   // ─────────────────────────────────────
   // Observability & Event Bus
@@ -161,9 +194,10 @@ export function createHarnessContainer(options: HarnessOptions = {}): Container 
       .bind(TYPES.PlanGenerator)
       .toDynamicValue(() => {
         const capabilityRegistry = container.get<CapabilityRegistry>(TYPES.CapabilityRegistry);
+        const modelCatalog = container.get<ModelCatalog>(TYPES.ModelCatalog);
         const staticGen = new StaticPlanGenerator();
         const llmGen = new LLMPlanGenerator(
-          LLMFactory.create({ provider: "openrouter", model: "gemma-4-31b-it" }),
+          LLMFactory.create(modelCatalog.getDefault("planner")),
           capabilityRegistry,
         );
         return new AdaptivePlanGenerator(staticGen, llmGen);

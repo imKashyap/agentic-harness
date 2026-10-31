@@ -1,0 +1,30 @@
+providers:
+  - id: openrouter
+    name: OpenRouter
+    providerType: openrouter
+    baseURL: https://openrouter.ai/api/v1
+    apiKeyEnv: OPENROUTER_API_KEY
+    timeoutMs: 60000
+    maxRetries: 3
+
+  - id: openai
+    name: OpenAI
+    providerType: openai
+    baseURL: https://api.openai.com/v1
+    apiKeyEnv: OPENAI_API_KEY
+    timeoutMs: 60000
+    maxRetries: 3
+
+  - id: anthropic
+    name: Anthropic
+    providerType: anthropic
+    baseURL: https://api.anthropic.com/v1
+    apiKeyEnv: ANTHROPIC_API_KEY
+    timeoutMs: 60000
+    maxRetries: 3
+
+  - id: mock
+    name: Mock Provider
+    providerType: mock
+    baseURL: ""
+    apiKeyEnv: MOCK_API_KEY
