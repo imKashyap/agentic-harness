@@ -2,10 +2,14 @@ import { Hono } from "hono";
 
 import { AgentHarness } from "../../../src/core/harness.js";
 import { createLogger } from "../../../src/observability/logging.js";
+import { type PrincipalIdResolver, resolvePrincipalId } from "../principal.js";
 
 const logger = createLogger("MemoryRoutes");
 
-export function createMemoryRoutes(harness: AgentHarness): Hono {
+export function createMemoryRoutes(
+  harness: AgentHarness,
+  principalIdResolver?: PrincipalIdResolver,
+): Hono {
   const router = new Hono();
 
   // List all capabilities
@@ -26,7 +30,6 @@ export function createMemoryRoutes(harness: AgentHarness): Hono {
   router.post("/memory", async (c) => {
     const body = (await c.req.json().catch(() => ({}))) as {
       fact?: string;
-      agentId?: string;
       tags?: string[];
     };
 
@@ -40,16 +43,27 @@ export function createMemoryRoutes(harness: AgentHarness): Hono {
       );
     }
 
+    const principalId = await resolvePrincipalId(c.req.raw, principalIdResolver);
+    if (!principalId) {
+      return c.json({ success: false, error: "Authentication is required for user memory" }, 401);
+    }
+
     try {
       const memory = await harness.remember(body.fact.trim(), {
-        agentId: body.agentId,
+        principalId,
         tags: Array.isArray(body.tags) ? body.tags : undefined,
       });
 
       logger.info(`Stored memory [${memory.id}] via API`);
       return c.json({
         success: true,
-        memory,
+        memory: {
+          id: memory.id,
+          content: memory.content,
+          createdByAgentId: memory.agentId,
+          tags: memory.tags,
+          createdAt: memory.createdAt,
+        },
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -61,7 +75,6 @@ export function createMemoryRoutes(harness: AgentHarness): Hono {
   router.post("/memory/search", async (c) => {
     const body = (await c.req.json().catch(() => ({}))) as {
       query?: string;
-      agentId?: string;
       limit?: number;
     };
 
@@ -75,9 +88,14 @@ export function createMemoryRoutes(harness: AgentHarness): Hono {
       );
     }
 
+    const principalId = await resolvePrincipalId(c.req.raw, principalIdResolver);
+    if (!principalId) {
+      return c.json({ success: false, error: "Authentication is required for user memory" }, 401);
+    }
+
     try {
       const results = await harness.recall(body.query.trim(), {
-        agentId: body.agentId,
+        principalId,
         limit: body.limit,
       });
 
@@ -88,7 +106,7 @@ export function createMemoryRoutes(harness: AgentHarness): Hono {
         results: results.map((r) => ({
           content: r.entry.content,
           score: Math.round(r.score * 100) / 100,
-          agentId: r.entry.agentId,
+          createdByAgentId: r.entry.agentId,
           tags: r.entry.tags,
           createdAt: r.entry.createdAt,
         })),

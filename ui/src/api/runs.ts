@@ -1,4 +1,4 @@
-import { API_BASE_URL, apiFetch } from './client';
+import { API_BASE_URL, apiFetch, getUserId } from './client';
 import type { MessageItem } from './sessions';
 
 export type SSEHandler = (event: string, data: any) => void;
@@ -38,6 +38,7 @@ export async function streamAgentRun(
     headers: {
       'Content-Type': 'application/json',
       Accept: 'text/event-stream',
+      'x-user-id': getUserId(),
     },
     body: JSON.stringify({ ...payload, stream: true }),
     signal,

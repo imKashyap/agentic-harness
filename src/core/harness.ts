@@ -10,7 +10,6 @@ import { CapabilityRegistry } from "../capabilities/capability-registry.js";
 import { CapabilityResolver } from "../capabilities/resolution/capability-resolver.js";
 import { Skill } from "../capabilities/skills/skill.js";
 import { SkillLoader } from "../capabilities/skills/skill-loader.js";
-import { CalculatorTool } from "../capabilities/tools/examples/calculator-tool.js";
 import { Tool } from "../capabilities/tools/tool.js";
 import { ToolLoader } from "../capabilities/tools/tool-loader.js";
 import { createHarnessContainer } from "../di/container.js";
@@ -28,7 +27,6 @@ import { MemoryManager } from "../memory/long-term/memory-manager.js";
 import type { LongTermMemoryStore } from "../memory/long-term/memory-store.js";
 import { ContextCompactor } from "../memory/session/context-compactor.js";
 import type { SessionStore } from "../memory/session/session-store.js";
-import { RememberFactTool, SearchMemoryTool } from "../memory/tools/memory-tools.js";
 import { MemoryEntry, MemorySearchOptions, MemorySearchResult, Session } from "../memory/types.js";
 import type { PromptProvider } from "../prompts/prompt-provider.js";
 import { createLogger } from "../utils/logger.js";
@@ -66,6 +64,8 @@ export interface HarnessOptions {
 
 export interface RunAgentOptions {
   sessionId?: string;
+  /** Trusted identity supplied by the embedding application, never request/model input. */
+  principalId?: string;
   context?: ExecutionContext;
   enableLongTermMemory?: boolean;
 }
@@ -100,15 +100,14 @@ export class AgentHarness {
     await container.get<MessageBus>(TYPES.MessageBus).initialize?.();
 
     const capabilityRegistry = container.get<CapabilityRegistry>(TYPES.CapabilityRegistry);
-    const memoryManager = container.get<MemoryManager>(TYPES.MemoryManager);
     const configLoader = container.get<AgentConfigLoader>(TYPES.AgentConfigLoader);
     const agentsDir = options.agentsDir ?? "./agents";
     const skillsDir = options.skillsDir ?? "./skills";
-    const tools = options.tools ?? [new CalculatorTool()];
+    const tools = options.tools ?? [];
 
-    // Auto-register memory tools
-    const rememberTool = new RememberFactTool(memoryManager);
-    const searchMemoryTool = new SearchMemoryTool(memoryManager);
+    const builtinTools = container.isBound(TYPES.BuiltinTools)
+      ? container.get<Tool[]>(TYPES.BuiltinTools)
+      : [];
 
     // ─────────────────────────────────────
     // Capability discovery
@@ -116,7 +115,7 @@ export class AgentHarness {
     const loaders: CapabilityLoader[] = [
       new SkillLoader(skillsDir),
       new AgentCapabilityLoader(agentsDir),
-      new ToolLoader([...tools, rememberTool, searchMemoryTool]),
+      new ToolLoader([...tools, ...builtinTools]),
       ...(options.customLoaders ?? []),
     ];
 
@@ -133,12 +132,6 @@ export class AgentHarness {
       harness,
       `${agentsDir}/supervisor/agent.json`,
       "supervisor",
-    );
-    await registerAgentConfigIfPresent(
-      configLoader,
-      harness,
-      `${agentsDir}/researcher/agent.json`,
-      "researcher",
     );
 
     logger.info("AgentHarness initialized successfully via Inversify container");
@@ -189,12 +182,18 @@ export class AgentHarness {
 
   async remember(
     content: string,
-    options: { agentId?: string; sessionId?: string; tags?: string[] } = {},
+    options: {
+      principalId: string;
+      agentId?: string;
+      sessionId?: string;
+      tags?: string[];
+      scope?: "user" | "agent";
+    },
   ): Promise<MemoryEntry> {
     return this.memoryManager.remember(content, options);
   }
 
-  async recall(query: string, options: MemorySearchOptions = {}): Promise<MemorySearchResult[]> {
+  async recall(query: string, options: MemorySearchOptions): Promise<MemorySearchResult[]> {
     return this.memoryManager.recall(query, options);
   }
 
@@ -246,6 +245,15 @@ export class AgentHarness {
       : (options as RunAgentOptions).context;
 
     const runOptions: RunAgentOptions = isExecutionContext ? {} : (options as RunAgentOptions);
+    const executionContext = parentContext
+      ? { ...parentContext, principalId: runOptions.principalId ?? parentContext.principalId }
+      : runOptions.principalId
+        ? {
+            runId: crypto.randomUUID(),
+            agentId,
+            principalId: runOptions.principalId,
+          }
+        : undefined;
 
     let runInput: AgentRunInput;
     if (typeof input === "string") {
@@ -277,7 +285,7 @@ export class AgentHarness {
     }
 
     logger.info(`Running agent '${agentId}' via harness facade`);
-    const result = await agent.run(runInput, parentContext);
+    const result = await agent.run(runInput, executionContext);
 
     // Persist updated session
     if (runInput.sessionId) {
@@ -306,6 +314,7 @@ export class AgentHarness {
     const runContext: ExecutionContext = {
       runId,
       agentId,
+      principalId: options.principalId ?? options.context?.principalId,
       parentRunId: options.context?.parentRunId,
       parentAgentId: options.context?.parentAgentId,
       metadata: options.context?.metadata,

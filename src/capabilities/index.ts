@@ -12,7 +12,6 @@ export * from "./resolution/capability-resolver.js";
 export * from "./resolution/llm-capability.js";
 export * from "./skills/skill.js";
 export * from "./skills/skill-loader.js";
-export * from "./tools/examples/calculator-tool.js";
 export * from "./tools/tool.js";
 export * from "./tools/tool-capability-executor.js";
 export * from "./tools/tool-executor.js";

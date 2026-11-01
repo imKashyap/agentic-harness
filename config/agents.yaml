@@ -14,7 +14,3 @@ agents:
   - agentId: supervisor
     modelId: openrouter/gemma
     inferenceProfileId: planner_default
-
-  - agentId: researcher
-    modelId: openrouter/gemma
-    inferenceProfileId: executor_default

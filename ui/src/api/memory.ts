@@ -3,7 +3,7 @@ import { apiFetch } from './client';
 export interface MemorySearchResult {
   content: string;
   score: number;
-  agentId?: string;
+  createdByAgentId?: string;
   tags?: string[];
   createdAt: number;
 }
@@ -13,7 +13,7 @@ export interface StoreMemoryResponse {
   memory: {
     id: string;
     content: string;
-    agentId?: string;
+    createdByAgentId?: string;
     tags?: string[];
     createdAt: number;
   };
@@ -28,22 +28,20 @@ export interface SearchMemoryResponse {
 
 export async function storeMemory(
   fact: string,
-  agentId?: string,
   tags?: string[]
 ): Promise<StoreMemoryResponse> {
   return apiFetch<StoreMemoryResponse>('/memory', {
     method: 'POST',
-    body: JSON.stringify({ fact, agentId, tags }),
+    body: JSON.stringify({ fact, tags }),
   });
 }
 
 export async function searchMemory(
   query: string,
-  agentId?: string,
-  limit: number = 5
+  limit: number = 5,
 ): Promise<SearchMemoryResponse> {
   return apiFetch<SearchMemoryResponse>('/memory/search', {
     method: 'POST',
-    body: JSON.stringify({ query, agentId, limit }),
+    body: JSON.stringify({ query, limit }),
   });
 }

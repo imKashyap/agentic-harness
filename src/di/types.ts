@@ -43,6 +43,7 @@ export const TYPES = {
   ToolCapabilityExecutor: Symbol.for("ToolCapabilityExecutor"),
   SubAgentExecutor: Symbol.for("SubAgentExecutor"),
   CapabilityDispatcher: Symbol.for("CapabilityDispatcher"),
+  BuiltinTools: Symbol.for("BuiltinTools"),
 
   // Orchestration & Planning
   Scheduler: Symbol.for("Scheduler"),

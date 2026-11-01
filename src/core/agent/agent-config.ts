@@ -20,6 +20,13 @@ export const PromptConfigSchema = z.object({
   version: z.string().optional(),
 });
 
+export const AgentMemoryConfigSchema = z.object({
+  autoRecall: z.boolean().default(false),
+  search: z.boolean().default(false),
+  save: z.boolean().default(false),
+  scope: z.enum(["user", "agent"]).default("user"),
+});
+
 export const AgentConfigSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
@@ -32,6 +39,7 @@ export const AgentConfigSchema = z.object({
   skills: z.array(z.string()),
   tools: z.array(z.string()),
   subAgents: z.array(z.string()),
+  memory: AgentMemoryConfigSchema.optional(),
 });
 
 export type AgentConfig = z.infer<typeof AgentConfigSchema>;
@@ -46,3 +54,4 @@ export type RuntimeAgentConfig = Omit<AgentConfig, "model"> & {
   model: RuntimeModelConfig;
 };
 export type PromptConfig = z.infer<typeof PromptConfigSchema>;
+export type AgentMemoryConfig = z.infer<typeof AgentMemoryConfigSchema>;

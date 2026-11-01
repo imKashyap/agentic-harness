@@ -123,7 +123,7 @@ Lists all available agents registered in the harness.
   ```json
   {
     "success": true,
-    "agents": [{ "id": "supervisor" }, { "id": "researcher" }]
+    "agents": [{ "id": "supervisor" }]
   }
   ```
 
@@ -134,7 +134,7 @@ Lists all available agents registered in the harness.
 Executes an agent run for the specified agent. Supports both **synchronous JSON responses** and **live Server-Sent Events (SSE)**.
 
 - **Path Parameters**:
-  - `id` (_string_, required): Unique agent ID (e.g. `supervisor`, `researcher`).
+  - `id` (_string_, required): Unique ID of a configured agent.
 
 - **Request Headers**:
   - `Content-Type: application/json`
@@ -144,42 +144,32 @@ Executes an agent run for the specified agent. Supports both **synchronous JSON 
 
   ```json
   {
-    "message": "Calculate (150 * 24) + 400 and summarize.",
+    "message": "Summarize the latest project context.",
     "sessionId": "session-user-101",
-    "stream": false,
-    "enableLongTermMemory": true
+    "stream": false
   }
   ```
 
-  | Property               | Type      | Required | Description                                                           |
-  | :--------------------- | :-------- | :------- | :-------------------------------------------------------------------- |
-  | `message`              | `string`  | **Yes**  | The user prompt or instruction                                        |
-  | `sessionId`            | `string`  | No       | ID of conversational session to load and persist history              |
-  | `stream`               | `boolean` | No       | If `true`, returns `text/event-stream` regardless of `Accept` header  |
-  | `enableLongTermMemory` | `boolean` | No       | Enables semantic memory search and prompt injection (default: `true`) |
+  | Property               | Type      | Required | Description                                                                                      |
+  | :--------------------- | :-------- | :------- | :----------------------------------------------------------------------------------------------- |
+  | `message`              | `string`  | **Yes**  | The user prompt or instruction                                                                   |
+  | `sessionId`            | `string`  | No       | ID of conversational session to load and persist history                                         |
+  | `stream`               | `boolean` | No       | If `true`, returns `text/event-stream` regardless of `Accept` header                             |
+  | `enableLongTermMemory` | `boolean` | No       | Disables automatic recall for this run when `false`; agent memory policy must also enable recall |
+
+The principal ID is resolved by the host application's trusted `resolvePrincipalId` callback. It is never accepted in the run body or from model tool arguments.
 
 - **Synchronous Response (`200 OK` when `stream: false`)**:
 
   ```json
   {
     "success": true,
-    "response": "The calculation (150 * 24) + 400 equals 4,000.",
+    "response": "Here is the project summary...",
     "sessionId": "session-user-101",
     "messages": [
       { "role": "system", "content": "You are Supervisor..." },
-      { "role": "user", "content": "Calculate (150 * 24) + 400 and summarize." },
-      {
-        "role": "assistant",
-        "toolCalls": [
-          {
-            "id": "call-1",
-            "name": "tool.calculator",
-            "input": { "expression": "(150 * 24) + 400" }
-          }
-        ]
-      },
-      { "role": "tool", "toolCallId": "call-1", "content": "4000" },
-      { "role": "assistant", "content": "The calculation (150 * 24) + 400 equals 4,000." }
+      { "role": "user", "content": "Summarize the latest project context." },
+      { "role": "assistant", "content": "Here is the project summary..." }
     ]
   }
   ```
@@ -192,25 +182,16 @@ Executes an agent run for the specified agent. Supports both **synchronous JSON 
   Connection: keep-alive
 
   event: run:start
-  data: {"runId":"c4e672","agentId":"supervisor","timestamp":1724784000100,"input":"Calculate (150 * 24) + 400"}
+  data: {"runId":"c4e672","agentId":"supervisor","timestamp":1724784000100,"input":"Summarize the latest project context."}
 
   event: token:delta
-  data: {"runId":"c4e672","agentId":"supervisor","timestamp":1724784000150,"delta":"Let"}
+  data: {"runId":"c4e672","agentId":"supervisor","timestamp":1724784000150,"delta":"Here is"}
 
   event: token:delta
-  data: {"runId":"c4e672","agentId":"supervisor","timestamp":1724784000160,"delta":" me calculate"}
-
-  event: task:start
-  data: {"runId":"c4e672","agentId":"supervisor","timestamp":1724784000200,"taskId":"call-1","capability":"tool.calculator","input":{"expression":"(150 * 24) + 400"}}
-
-  event: task:complete
-  data: {"runId":"c4e672","agentId":"supervisor","timestamp":1724784000205,"taskId":"call-1","capability":"tool.calculator","output":{"expression":"(150 * 24) + 400","result":4000},"durationMs":5}
-
-  event: token:delta
-  data: {"runId":"c4e672","agentId":"supervisor","timestamp":1724784000250,"delta":"The calculation equals 4,000."}
+  data: {"runId":"c4e672","agentId":"supervisor","timestamp":1724784000160,"delta":" the project summary."}
 
   event: run:end
-  data: {"runId":"c4e672","agentId":"supervisor","timestamp":1724784000300,"response":"The calculation equals 4,000.","durationMs":200,"totalMessages":5}
+  data: {"runId":"c4e672","agentId":"supervisor","timestamp":1724784000300,"response":"Here is the project summary...","durationMs":200,"totalMessages":3}
   ```
 
 ---
@@ -232,6 +213,7 @@ When streaming is enabled, the server emits strongly-typed events in standard SS
 | `task:failed`            | `runId`, `agentId`, `timestamp`, `taskId`, `capability`, `error`, `durationMs`           | Task threw an unhandled error             |
 | `subagent:delegated`     | `runId`, `agentId`, `timestamp`, `parentAgentId`, `subAgentId`, `task`                   | Sub-agent delegation started              |
 | `subagent:completed`     | `runId`, `agentId`, `timestamp`, `parentAgentId`, `subAgentId`, `response`, `durationMs` | Sub-agent finished task                   |
+| `progressive:message`    | `runId`, `stage`, `message`, `capability?`, `timestamp`                                  | Conversational progress status update     |
 | `memory:recalled`        | `runId`, `agentId`, `timestamp`, `query`, `matchCount`                                   | Semantic memories retrieved and injected  |
 | `memory:stored`          | `runId`, `agentId`, `timestamp`, `memoryId`, `content`                                   | Fact persisted to long-term memory        |
 | `hitl:approval_required` | `runId`, `agentId`, `timestamp`, `taskId`, `capability`, `input`, `approvalToken`        | Task paused; awaiting human approval      |
@@ -311,18 +293,13 @@ Deletes a session and its conversation history.
 #### `GET /v1/capabilities`
 
 Lists all registered tools, skills, and sub-agents.
+The default harness registers the memory tools, but an agent can use them only when its memory policy grants access.
 
 - **Response (`200 OK`)**:
   ```json
   {
     "success": true,
     "capabilities": [
-      {
-        "id": "tool.calculator",
-        "name": "Calculator",
-        "type": "tool",
-        "description": "Evaluates arithmetic expressions"
-      },
       {
         "id": "tool.remember_fact",
         "name": "Remember Fact",
@@ -334,18 +311,6 @@ Lists all registered tools, skills, and sub-agents.
         "name": "Search Memory",
         "type": "tool",
         "description": "Searches vector memory"
-      },
-      {
-        "id": "skill.greeting",
-        "name": "Greeting",
-        "type": "skill",
-        "description": "Greets users cordially"
-      },
-      {
-        "id": "agent.researcher",
-        "name": "Researcher",
-        "type": "agent",
-        "description": "Performs deep analysis"
       }
     ]
   }
@@ -355,14 +320,15 @@ Lists all registered tools, skills, and sub-agents.
 
 #### `POST /v1/memory`
 
-Explicitly stores a knowledge fact into the vector embedding store.
+Explicitly stores a knowledge fact in the authenticated user's memory. The host application must configure a trusted principal resolver; these endpoints return `401` without one.
+
+- **Request Headers**: The host application's authentication credentials. `resolvePrincipalId` must validate them and return a trusted user or tenant ID.
 
 - **Request Body**:
 
   ```json
   {
     "fact": "Production database is PostgreSQL 16 on Google Cloud SQL",
-    "agentId": "supervisor",
     "tags": ["infrastructure", "database", "gcp"]
   }
   ```
@@ -374,7 +340,7 @@ Explicitly stores a knowledge fact into the vector embedding store.
     "memory": {
       "id": "8b7543f1-112d-4c4c-b871-e17394432311",
       "content": "Production database is PostgreSQL 16 on Google Cloud SQL",
-      "agentId": "supervisor",
+      "createdByAgentId": null,
       "tags": ["infrastructure", "database", "gcp"],
       "createdAt": 1724784000000
     }
@@ -387,12 +353,13 @@ Explicitly stores a knowledge fact into the vector embedding store.
 
 Performs cosine similarity semantic search over stored memories.
 
+- **Request Headers**: The host application's authentication credentials. The principal ID is never accepted in the request body.
+
 - **Request Body**:
 
   ```json
   {
     "query": "Which database version do we use in production?",
-    "agentId": "supervisor",
     "limit": 3
   }
   ```
@@ -407,7 +374,7 @@ Performs cosine similarity semantic search over stored memories.
       {
         "content": "Production database is PostgreSQL 16 on Google Cloud SQL",
         "score": 0.88,
-        "agentId": "supervisor",
+        "createdByAgentId": "agent-42",
         "tags": ["infrastructure", "database", "gcp"],
         "createdAt": 1724784000000
       }

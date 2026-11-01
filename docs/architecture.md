@@ -67,27 +67,16 @@ agentic-harness/
 │   │
 │   ├── capabilities/
 │   │   ├── skills/                # Skill metadata & registry
-│   │   ├── tools/                 # Tool metadata & registry
-│   │   └── agents/                # Agent capability descriptors & execution
+│   │   ├── tools/                 # Tool metadata, registry & execution
+│   │   │   └── builtin/           # Built-in platform tools (RememberFactTool, SearchMemoryTool)
+│   │   ├── agents/                # Agent capability descriptors & execution
+│   │   └── progressive-message.ts # Real-time conversational status formatter
 │   │
 │   ├── di/                        # Inversify IoC Container & Service Identifiers (TYPES)
 │   └── errors/                    # Domain-specific typed error classes (HarnessError)
 │
-├── skills/                        # Modular skill packs (SKILL.md + metadata.json)
-│   ├── ticket-booking/
-│   ├── code-review/
-│   └── incident-debugging/
-│
-├── tools/                         # Tool specifications (tool.json)
-│   ├── calculator/
-│   ├── github/
-│   ├── slack/
-│   └── jira/
-│
 ├── agents/                        # Declarative agent configurations (agent.json)
-│   ├── coder/
-│   ├── reviewer/
-│   └── researcher/
+│   └── supervisor/
 │
 ├── config/                        # Environment & model configurations
 │   ├── development.yaml
@@ -119,6 +108,7 @@ All dependencies are wired through the Inversify IoC container in `src/di/contai
 - `TYPES.TokenManager` $\rightarrow$ `TokenManager`
 - `TYPES.InputGuard`, `TYPES.ToolGuard`, `TYPES.OutputGuard`, `TYPES.PolicyEngine`
 - `TYPES.ModelRouter` $\rightarrow$ `ModelRouter`
+- `TYPES.BuiltinTools` $\rightarrow$ Built-in subsystem tools (`RememberFactTool`, `SearchMemoryTool`) auto-wired with DI dependencies
 
 ---
 
@@ -158,3 +148,27 @@ The harness includes enterprise-grade resilience patterns across all execution l
 ### 4. Multi-Provider Fallbacks (`ModelRouter` & `withFallback`)
 
 - Seamless automatic failover: if primary provider encounters exhaustion or circuit trip, calls are transparently redirected to the designated secondary provider (e.g. OpenRouter $\rightarrow$ OpenAI $\rightarrow$ Anthropic).
+
+---
+
+## 5. Built-in Tools and Agent Access
+
+All tools share the same `Tool` interface, capability registry, and execution pipeline. Registration and access are separate:
+
+- **Custom tools**: Supplied by the application through `AgentHarness.init({ tools: [...] })` or registered dynamically.
+- **Built-in memory tools**: Registered by the runtime and wired to `MemoryManager` through a single factory. Agent configuration separately grants memory search and save.
+
+The dispatcher and execution engine enforce each agent's resolved capability allowlist. A model call cannot invoke a tool or sub-agent merely because it exists in the global registry.
+
+Long-term user memory is scoped by a trusted principal ID from the host application. `agentId` records which agent wrote an entry; it does not restrict access to user-scoped memories. Optional agent-private memory is scoped by both principal and agent. When `memory.autoRecall` is enabled, matching memories are injected into the system prompt automatically; prompts do not need search instructions.
+
+---
+
+## 6. Progressive Message Streaming (`progressive:message`)
+
+To avoid silent UI pauses during long multi-step agent actions (parallel tool execution, subagent handoffs, complex DAG planning), the execution runtime emits `progressive:message` events over `HarnessEventBus` and the SSE `/v1/agents/:id/runs` stream:
+
+- **Planning phase**: Conversational summary of parallel task steps (e.g. _"Planning execution of 2 tool actions in parallel..."_).
+- **Tool execution**: Humanized status per capability or custom formatter (e.g. _"Calculating '150 * 24 + 400'..."_, _"Searching long-term memory..."_).
+- **Sub-agent delegation**: Real-time delegation updates for configured specialist agents.
+- **Dismissal**: Cleared in the UI as soon as first response token delta arrives or the turn finishes.

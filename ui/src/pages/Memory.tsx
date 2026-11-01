@@ -13,12 +13,10 @@ import type { MemorySearchResult } from '../api/memory';
 
 export const Memory = () => {
   const [factInput, setFactInput] = useState('');
-  const [factAgent, setFactAgent] = useState('supervisor');
   const [factTags, setFactTags] = useState('');
   const [storeStatus, setStoreStatus] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchAgent] = useState('');
   const [searchResults, setSearchResults] = useState<MemorySearchResult[]>([]);
 
   const storeMutation = useMutation({
@@ -27,7 +25,7 @@ export const Memory = () => {
         .split(',')
         .map((t) => t.trim())
         .filter(Boolean);
-      return storeMemory(factInput, factAgent || undefined, tags);
+      return storeMemory(factInput, tags);
     },
     onSuccess: (res) => {
       setStoreStatus(`Successfully stored memory [${res.memory.id}]!`);
@@ -39,7 +37,7 @@ export const Memory = () => {
 
   const searchMutation = useMutation({
     mutationFn: async () => {
-      return searchMemory(searchQuery, searchAgent || undefined, 5);
+      return searchMemory(searchQuery, 5);
     },
     onSuccess: (res) => {
       setSearchResults(res.results || []);
@@ -90,19 +88,7 @@ export const Memory = () => {
               />
             </div>
 
-            <div className='grid grid-cols-2 gap-3'>
-              <div className='space-y-1.5'>
-                <label className='text-neutral-300 font-medium'>Assign to Agent</label>
-                <input
-                  type='text'
-                  value={factAgent}
-                  onChange={(e) => setFactAgent(e.target.value)}
-                  placeholder='supervisor'
-                  className='w-full bg-neutral-950 border border-neutral-800 focus:border-indigo-500 rounded-lg px-3 py-2 text-xs text-neutral-100 placeholder-neutral-500 focus:outline-none'
-                />
-              </div>
-
-              <div className='space-y-1.5'>
+            <div className='space-y-1.5'>
                 <label className='text-neutral-300 font-medium'>Tags (Comma Separated)</label>
                 <input
                   type='text'
@@ -111,7 +97,6 @@ export const Memory = () => {
                   placeholder='database, infra, prod'
                   className='w-full bg-neutral-950 border border-neutral-800 focus:border-indigo-500 rounded-lg px-3 py-2 text-xs text-neutral-100 placeholder-neutral-500 focus:outline-none'
                 />
-              </div>
             </div>
 
             <button
@@ -205,9 +190,9 @@ export const Memory = () => {
                         <span className='px-2 py-0.5 rounded font-mono text-[10px] font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20'>
                           Score: {r.score.toFixed(2)}
                         </span>
-                        {r.agentId && (
+                        {r.createdByAgentId && (
                           <span className='font-mono text-[11px] text-neutral-400 flex items-center gap-1'>
-                            <Bot size={11} /> {r.agentId}
+                            <Bot size={11} /> Saved by {r.createdByAgentId}
                           </span>
                         )}
                       </div>

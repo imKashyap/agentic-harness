@@ -9,13 +9,6 @@ import { HarnessEvent, ProgressiveMessagePayload } from "../../src/events/types.
 
 describe("Progressive Message System", () => {
   it("formats progressive messages for various capabilities naturally", () => {
-    // Calculator
-    assert.strictEqual(
-      formatProgressMessage("tool.calculator", { expression: "128 * 45" }),
-      "Calculating '128 * 45'...",
-    );
-    assert.strictEqual(formatProgressMessage("tool.calculator"), "Performing calculation...");
-
     // GitHub
     assert.strictEqual(
       formatProgressMessage("tool.github", { repo: "org/repo" }),
@@ -41,10 +34,10 @@ describe("Progressive Message System", () => {
       'Searching for "latest release notes"...',
     );
 
-    // Subagent
+    // Subagent capability formatting remains generic.
     assert.strictEqual(
-      formatProgressMessage("agent.researcher", { task: "survey database engines" }),
-      "Consulting specialist agent 'researcher' on \"survey database engines\"...",
+      formatProgressMessage("agent.test-specialist", { task: "survey database engines" }),
+      "Consulting specialist agent 'test-specialist' on \"survey database engines\"...",
     );
 
     // Generic camelCase / snake_case
@@ -82,7 +75,7 @@ describe("Progressive Message System", () => {
     bus.emit("run:start", {
       runId,
       agentId: "agent-main",
-      input: "Calculate 128 * 45",
+      input: "Fetch the project status",
       timestamp: Date.now(),
     });
 
@@ -90,8 +83,8 @@ describe("Progressive Message System", () => {
       runId,
       agentId: "agent-main",
       stage: "action",
-      capability: "tool.calculator",
-      message: "Calculating '128 * 45'...",
+      capability: "tool.github",
+      message: "Interacting with GitHub...",
       timestamp: Date.now(),
     });
 
@@ -109,7 +102,7 @@ describe("Progressive Message System", () => {
     assert.strictEqual(collected.length, 3);
     assert.strictEqual(collected[1]?.type, "progressive:message");
     const progPayload = collected[1]?.payload as ProgressiveMessagePayload;
-    assert.strictEqual(progPayload.message, "Calculating '128 * 45'...");
+    assert.strictEqual(progPayload.message, "Interacting with GitHub...");
     assert.strictEqual(progPayload.stage, "action");
   });
 });

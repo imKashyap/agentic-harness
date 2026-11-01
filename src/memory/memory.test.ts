@@ -55,21 +55,25 @@ describe("MockLongTermMemoryStore & MemoryManager", () => {
     const manager = new MemoryManager(new MockLongTermMemoryStore());
 
     await manager.remember("User preferred database is PostgreSQL 16 on AWS Aurora", {
+      principalId: "user-1",
       agentId: "db-agent",
       tags: ["infra", "database"],
     });
 
     await manager.remember("User prefers tabs over spaces in code formatting", {
+      principalId: "user-1",
       agentId: "db-agent",
       tags: ["style"],
     });
 
     await manager.remember("The project uses Docker for local container development", {
+      principalId: "user-1",
       agentId: "dev-agent",
       tags: ["infra"],
     });
 
     const results = await manager.recall("PostgreSQL database setup", {
+      principalId: "user-1",
       agentId: "db-agent",
     });
 
@@ -77,7 +81,7 @@ describe("MockLongTermMemoryStore & MemoryManager", () => {
     assert.match(results[0]?.entry.content ?? "", /PostgreSQL/);
 
     const promptSection = manager.formatMemoryPrompt(results);
-    assert.match(promptSection, /## Relevant Long-Term Memory & Prior Context/);
+    assert.match(promptSection, /## Relevant User Memory/);
     assert.match(promptSection, /PostgreSQL 16/);
   });
 });
@@ -86,7 +90,7 @@ describe("Memory Tools (RememberFactTool & SearchMemoryTool)", () => {
   const manager = new MemoryManager(new MockLongTermMemoryStore());
   const rememberTool = new RememberFactTool(manager);
   const searchTool = new SearchMemoryTool(manager);
-  const context = { runId: "test-run", agentId: "test-agent" };
+  const context = { runId: "test-run", agentId: "test-agent", principalId: "user-1" };
 
   it("stores a fact into memory via RememberFactTool", async () => {
     const result = await rememberTool.execute(
@@ -130,14 +134,16 @@ describe("AgentHarness with Memory Subsystems", () => {
       model: { provider: "mock", model: "mock-model" },
       prompt: { id: "mem-prompt" },
       skills: [],
-      tools: ["tool.remember_fact", "tool.search_memory"],
+      tools: [],
       subAgents: [],
+      memory: { autoRecall: true, search: true, save: true, scope: "user" },
     };
 
     harness.registerAgent(config);
 
     // Save memory via facade
     const memory = await harness.remember("Production region is us-east-1", {
+      principalId: "user-1",
       agentId: "memory-agent",
       tags: ["aws", "cloud"],
     });
@@ -146,6 +152,7 @@ describe("AgentHarness with Memory Subsystems", () => {
 
     // Recall via facade
     const recalled = await harness.recall("Where is the production region located?", {
+      principalId: "user-1",
       agentId: "memory-agent",
     });
 

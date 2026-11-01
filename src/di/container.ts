@@ -6,6 +6,7 @@ import { SubAgentExecutor } from "../capabilities/agents/sub-agent-executor.js";
 import { CapabilityRegistry } from "../capabilities/capability-registry.js";
 import { CapabilityDispatcher } from "../capabilities/dispatch/capability-dispatcher.js";
 import { CapabilityResolver } from "../capabilities/resolution/capability-resolver.js";
+import { createBuiltinTools, Tool } from "../capabilities/tools/index.js";
 import { ToolCapabilityExecutor } from "../capabilities/tools/tool-capability-executor.js";
 import { ToolExecutor } from "../capabilities/tools/tool-executor.js";
 import { ContextManager } from "../context/context-manager.js";
@@ -197,6 +198,11 @@ export function createHarnessContainer(options: HarnessOptions = {}): Container 
   container.bind(TYPES.ToolCapabilityExecutor).to(ToolCapabilityExecutor).inSingletonScope();
   container.bind(TYPES.SubAgentExecutor).to(SubAgentExecutor).inSingletonScope();
   container.bind(TYPES.CapabilityDispatcher).to(CapabilityDispatcher).inSingletonScope();
+
+  // Built-in Tools
+  container
+    .bind<Tool[]>(TYPES.BuiltinTools)
+    .toDynamicValue(() => createBuiltinTools(container.get<MemoryManager>(TYPES.MemoryManager)));
 
   // ─────────────────────────────────────
   // Orchestration & Planning

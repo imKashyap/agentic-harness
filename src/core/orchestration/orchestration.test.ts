@@ -3,8 +3,8 @@ import "reflect-metadata";
 import assert from "node:assert";
 import { describe, it } from "node:test";
 
+import { TestTool } from "../../../tests/support/test-tool.js";
 import { CapabilityRegistry } from "../../capabilities/capability-registry.js";
-import { CalculatorTool } from "../../capabilities/tools/examples/calculator-tool.js";
 import { ToolCapabilityExecutor } from "../../capabilities/tools/tool-capability-executor.js";
 import { ToolExecutor } from "../../capabilities/tools/tool-executor.js";
 import { Task } from "../execution/task.js";
@@ -22,14 +22,14 @@ describe("DependencyGraph", () => {
       {
         id: "task-1",
         type: "capability",
-        capability: "tool.calculator",
+        capability: "tool.test",
         input: {},
         status: "pending",
       },
       {
         id: "task-2",
         type: "capability",
-        capability: "tool.calculator",
+        capability: "tool.test",
         input: {},
         status: "pending",
         dependsOn: ["task-1"],
@@ -140,46 +140,10 @@ describe("Scheduler", () => {
   });
 });
 
-describe("CalculatorTool", () => {
-  const tool = new CalculatorTool();
-  const context = { runId: "test-run", agentId: "test-agent" };
-
-  it("evaluates valid arithmetic expressions", async () => {
-    const res1 = await tool.execute({ expression: "2 + 2 * 3" }, context);
-    assert.strictEqual(res1.success, true);
-    assert.strictEqual(res1.output, 8);
-
-    const res2 = await tool.execute({ expression: "2 ^ 3" }, context);
-    assert.strictEqual(res2.success, true);
-    assert.strictEqual(res2.output, 8);
-
-    const res3 = await tool.execute({ expression: "(10 - 4) / 2" }, context);
-    assert.strictEqual(res3.success, true);
-    assert.strictEqual(res3.output, 3);
-  });
-
-  it("rejects invalid characters and dangerous expressions", async () => {
-    const res = await tool.execute({ expression: "process.exit(1)" }, context);
-    assert.strictEqual(res.success, false);
-    assert.match(res.error ?? "", /invalid characters/i);
-  });
-
-  it("handles non-object and empty inputs gracefully", async () => {
-    const res1 = await tool.execute(null, context);
-    assert.strictEqual(res1.success, false);
-
-    const res2 = await tool.execute({}, context);
-    assert.strictEqual(res2.success, false);
-
-    const res3 = await tool.execute({ expression: "   " }, context);
-    assert.strictEqual(res3.success, false);
-  });
-});
-
-describe("ExecutionEngine with CalculatorTool", () => {
+describe("ExecutionEngine with TestTool", () => {
   it("executes dependent tasks in topological order", async () => {
     const registry = new CapabilityRegistry();
-    const tool = new CalculatorTool();
+    const tool = new TestTool();
     registry.register(tool);
 
     const toolExecutor = new ToolExecutor();
@@ -189,29 +153,33 @@ describe("ExecutionEngine with CalculatorTool", () => {
 
     const tasks: Task[] = [
       {
-        id: "calc-1",
+        id: "test-1",
         type: "capability",
-        capability: "tool.calculator",
+        capability: "tool.test",
         input: { expression: "5 + 5" },
         status: "pending",
       },
       {
-        id: "calc-2",
+        id: "test-2",
         type: "capability",
-        capability: "tool.calculator",
+        capability: "tool.test",
         input: { expression: "10 * 10" },
         status: "pending",
-        dependsOn: ["calc-1"],
+        dependsOn: ["test-1"],
       },
     ];
 
-    const results = await engine.execute(tasks, { runId: "test-run", agentId: "supervisor" });
+    const results = await engine.execute(tasks, {
+      runId: "test-run",
+      agentId: "supervisor",
+      allowedCapabilities: ["tool.test"],
+    });
 
     assert.strictEqual(results.length, 2);
-    assert.strictEqual(results[0]?.taskId, "calc-1");
-    assert.strictEqual(results[0]?.output, 10);
-    assert.strictEqual(results[1]?.taskId, "calc-2");
-    assert.strictEqual(results[1]?.output, 100);
+    assert.strictEqual(results[0]?.taskId, "test-1");
+    assert.deepStrictEqual(results[0]?.output, { expression: "5 + 5" });
+    assert.strictEqual(results[1]?.taskId, "test-2");
+    assert.deepStrictEqual(results[1]?.output, { expression: "10 * 10" });
   });
 
   it("throws on cyclic dependencies", async () => {
@@ -223,7 +191,7 @@ describe("ExecutionEngine with CalculatorTool", () => {
       {
         id: "t1",
         type: "capability",
-        capability: "tool.calculator",
+        capability: "tool.test",
         input: { expression: "1" },
         status: "pending",
         dependsOn: ["t2"],
@@ -231,7 +199,7 @@ describe("ExecutionEngine with CalculatorTool", () => {
       {
         id: "t2",
         type: "capability",
-        capability: "tool.calculator",
+        capability: "tool.test",
         input: { expression: "2" },
         status: "pending",
         dependsOn: ["t1"],
@@ -248,7 +216,7 @@ describe("ExecutionEngine with CalculatorTool", () => {
 describe("Orchestrator with StaticPlanGenerator and PlanValidator", () => {
   it("plans and executes tasks end-to-end", async () => {
     const registry = new CapabilityRegistry();
-    registry.register(new CalculatorTool());
+    registry.register(new TestTool());
 
     const toolExecutor = new ToolExecutor();
     const toolCapabilityExecutor = new ToolCapabilityExecutor(registry, toolExecutor);
@@ -263,7 +231,7 @@ describe("Orchestrator with StaticPlanGenerator and PlanValidator", () => {
       toolCalls: [
         {
           id: "call-1",
-          name: "tool.calculator",
+          name: "tool.test",
           arguments: { expression: "3 * 3" },
         },
       ],
@@ -273,8 +241,12 @@ describe("Orchestrator with StaticPlanGenerator and PlanValidator", () => {
     assert.strictEqual(plan.tasks[0]?.id, "call-1");
     assert.deepStrictEqual(plan.tasks[0]?.dependsOn, []);
 
-    const results = await orchestrator.execute(plan, { runId: "run-1", agentId: "test" });
+    const results = await orchestrator.execute(plan, {
+      runId: "run-1",
+      agentId: "test",
+      allowedCapabilities: ["tool.test"],
+    });
     assert.strictEqual(results.length, 1);
-    assert.strictEqual(results[0]?.output, 9);
+    assert.deepStrictEqual(results[0]?.output, { expression: "3 * 3" });
   });
 });

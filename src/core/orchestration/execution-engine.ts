@@ -5,6 +5,7 @@ import type { CapabilityExecutor } from "../../capabilities/dispatch/capability-
 import { formatProgressMessage } from "../../capabilities/progressive-message.js";
 import type { Tool } from "../../capabilities/tools/tool.js";
 import { TYPES } from "../../di/types.js";
+import { CapabilityAccessDeniedError } from "../../errors/capability-errors.js";
 import { HarnessEventBus } from "../../events/event-bus.js";
 import { ApprovalManager } from "../../hitl/approval-manager.js";
 import { createLogger } from "../../utils/logger.js";
@@ -36,6 +37,12 @@ export class ExecutionEngine {
     if (graph.hasCycle()) {
       logger.error(`Task dependency graph contains a cycle`);
       throw new Error("Task dependency graph contains a cycle");
+    }
+
+    for (const task of tasks) {
+      if (!context.allowedCapabilities?.includes(task.capability)) {
+        throw new CapabilityAccessDeniedError(task.capability, context.agentId);
+      }
     }
 
     const results: ExecutionResult[] = [];

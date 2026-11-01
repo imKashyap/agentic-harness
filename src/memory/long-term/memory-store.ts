@@ -1,9 +1,11 @@
-import { MemoryEntry, MemorySearchOptions, MemorySearchResult } from "../types.js";
+import { MemoryEntry, MemorySearchOptions, MemorySearchResult, NewMemoryEntry } from "../types.js";
 
 export interface LongTermMemoryStore {
-  save(entry: Omit<MemoryEntry, "id" | "createdAt">): Promise<MemoryEntry>;
-  search(query: string, options?: MemorySearchOptions): Promise<MemorySearchResult[]>;
-  delete(id: string): Promise<boolean>;
-  list(agentId?: string): Promise<MemoryEntry[]>;
+  save(entry: NewMemoryEntry): Promise<MemoryEntry>;
+  search(query: string, options: MemorySearchOptions): Promise<MemorySearchResult[]>;
+  delete(id: string, principalId: string): Promise<boolean>;
+  list(
+    options: Pick<MemorySearchOptions, "principalId" | "scope" | "agentId">,
+  ): Promise<MemoryEntry[]>;
   clear?(): Promise<void>;
 }

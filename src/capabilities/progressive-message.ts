@@ -37,14 +37,6 @@ export function formatProgressMessage(
     return `Consulting specialist agent '${rawId}'...`;
   }
 
-  // Calculator
-  if (rawId === "calculator") {
-    if (typeof inputObj.expression === "string" && inputObj.expression.trim().length > 0) {
-      return `Calculating '${inputObj.expression}'...`;
-    }
-    return `Performing calculation...`;
-  }
-
   // GitHub
   if (rawId.startsWith("github")) {
     if (typeof inputObj.action === "string") {

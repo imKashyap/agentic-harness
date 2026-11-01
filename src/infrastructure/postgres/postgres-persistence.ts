@@ -7,7 +7,12 @@ import { cosineSimilarity } from "../../memory/long-term/cosine-similarity.js";
 import { LocalHashEmbeddingProvider } from "../../memory/long-term/embeddings.js";
 import type { LongTermMemoryStore } from "../../memory/long-term/memory-store.js";
 import type { SessionStore } from "../../memory/session/session-store.js";
-import type { MemoryEntry, MemorySearchOptions, MemorySearchResult } from "../../memory/types.js";
+import type {
+  MemoryEntry,
+  MemorySearchOptions,
+  MemorySearchResult,
+  NewMemoryEntry,
+} from "../../memory/types.js";
 import type { Session } from "../../memory/types.js";
 import type { RelationalDb } from "./postgres-store.js";
 
@@ -151,7 +156,7 @@ export class PostgresLongTermMemoryStore implements LongTermMemoryStore {
     this.embeddingProvider = embeddingProvider ?? new LocalHashEmbeddingProvider();
   }
 
-  async save(entry: Omit<MemoryEntry, "id" | "createdAt">): Promise<MemoryEntry> {
+  async save(entry: NewMemoryEntry): Promise<MemoryEntry> {
     const embedding = entry.embedding ?? (await this.embeddingProvider.embed(entry.content));
     const memory: MemoryEntry = {
       ...entry,
@@ -162,10 +167,12 @@ export class PostgresLongTermMemoryStore implements LongTermMemoryStore {
 
     await this.db.execute(
       `INSERT INTO long_term_memories
-         (id, agent_id, session_id, content, tags, embedding, metadata, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8)`,
+         (id, principal_id, memory_scope, agent_id, session_id, content, tags, embedding, metadata, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10)`,
       [
         memory.id,
+        memory.principalId,
+        memory.scope ?? "user",
         memory.agentId ?? null,
         memory.sessionId ?? null,
         memory.content,
@@ -178,10 +185,14 @@ export class PostgresLongTermMemoryStore implements LongTermMemoryStore {
     return memory;
   }
 
-  async search(query: string, options: MemorySearchOptions = {}): Promise<MemorySearchResult[]> {
-    const clauses: string[] = [];
-    const params: unknown[] = [];
-    if (options.agentId) {
+  async search(query: string, options: MemorySearchOptions): Promise<MemorySearchResult[]> {
+    const scope = options.scope ?? "user";
+    if (!options.principalId || (scope === "agent" && !options.agentId)) {
+      throw new Error("Memory search requires a principal ID and an agent ID for private scope");
+    }
+    const params: unknown[] = [options.principalId, scope];
+    const clauses: string[] = [`principal_id = $1`, `memory_scope = $2`];
+    if (scope === "agent") {
       params.push(options.agentId);
       clauses.push(`agent_id = $${params.length}`);
     }
@@ -195,7 +206,7 @@ export class PostgresLongTermMemoryStore implements LongTermMemoryStore {
     }
 
     const rows = await this.db.query<MemoryRow>(
-      `SELECT id, agent_id, session_id, content, tags, embedding, metadata, created_at
+      `SELECT id, principal_id, memory_scope, agent_id, session_id, content, tags, embedding, metadata, created_at
        FROM long_term_memories
        ${clauses.length ? `WHERE ${clauses.join(" AND ")}` : ""}
        ORDER BY created_at DESC`,
@@ -222,19 +233,32 @@ export class PostgresLongTermMemoryStore implements LongTermMemoryStore {
     return scored.slice(0, options.limit ?? 5);
   }
 
-  async delete(id: string): Promise<boolean> {
-    return (await this.db.execute("DELETE FROM long_term_memories WHERE id = $1", [id])) > 0;
+  async delete(id: string, principalId: string): Promise<boolean> {
+    if (!principalId) throw new Error("Memory deletion requires a principal ID");
+    return (
+      (await this.db.execute("DELETE FROM long_term_memories WHERE id = $1 AND principal_id = $2", [
+        id,
+        principalId,
+      ])) > 0
+    );
   }
 
-  async list(agentId?: string): Promise<MemoryEntry[]> {
-    const rows = agentId
-      ? await this.db.query<MemoryRow>(
-          "SELECT id, agent_id, session_id, content, tags, embedding, metadata, created_at FROM long_term_memories WHERE agent_id = $1 ORDER BY created_at DESC",
-          [agentId],
-        )
-      : await this.db.query<MemoryRow>(
-          "SELECT id, agent_id, session_id, content, tags, embedding, metadata, created_at FROM long_term_memories ORDER BY created_at DESC",
-        );
+  async list(
+    options: Pick<MemorySearchOptions, "principalId" | "scope" | "agentId">,
+  ): Promise<MemoryEntry[]> {
+    const scope = options.scope ?? "user";
+    if (!options.principalId || (scope === "agent" && !options.agentId)) {
+      throw new Error("Memory listing requires a principal ID and an agent ID for private scope");
+    }
+    const params: unknown[] = [options.principalId, scope];
+    const privateClause = scope === "agent" ? ` AND agent_id = $3` : "";
+    if (scope === "agent") params.push(options.agentId);
+    const rows = await this.db.query<MemoryRow>(
+      `SELECT id, principal_id, memory_scope, agent_id, session_id, content, tags, embedding, metadata, created_at
+       FROM long_term_memories WHERE principal_id = $1 AND memory_scope = $2${privateClause}
+       ORDER BY created_at DESC`,
+      params,
+    );
     return rows.map(mapMemory);
   }
 }
@@ -358,6 +382,8 @@ interface CheckpointRow {
 
 interface MemoryRow {
   id: string;
+  principal_id: string | null;
+  memory_scope: "user" | "agent";
   agent_id: string | null;
   session_id: string | null;
   content: string;
@@ -410,6 +436,8 @@ function mapCheckpoint(row: CheckpointRow): Checkpoint {
 function mapMemory(row: MemoryRow): MemoryEntry {
   return {
     id: row.id,
+    principalId: row.principal_id ?? undefined,
+    scope: row.memory_scope ?? "user",
     agentId: row.agent_id ?? undefined,
     sessionId: row.session_id ?? undefined,
     content: row.content,

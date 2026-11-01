@@ -10,13 +10,20 @@ import { Tool } from "../tools/tool.js";
 import { LLMCapabilityContext } from "./llm-capability.js";
 
 const logger = createLogger("CapabilityResolver");
+const MEMORY_TOOL_IDS = {
+  remember: "tool.remember_fact",
+  search: "tool.search_memory",
+} as const;
 
 @injectable()
 export class CapabilityResolver {
   resolveToolsForAgent(config: AgentConfig, registry: CapabilityRegistry): Tool[] {
     const tools: Tool[] = [];
+    const configuredTools = config.tools.filter((toolRef) => !isMemoryToolRef(toolRef));
+    if (config.memory?.save) configuredTools.push(MEMORY_TOOL_IDS.remember);
+    if (config.memory?.search) configuredTools.push(MEMORY_TOOL_IDS.search);
 
-    for (const toolRef of config.tools) {
+    for (const toolRef of configuredTools) {
       if (registry.has(toolRef)) {
         try {
           const tool = registry.getTool(toolRef);
@@ -34,9 +41,16 @@ export class CapabilityResolver {
     }
 
     logger.debug(
-      `Resolved ${tools.length}/${config.tools.length} tool(s) for agent '${config.id}'`,
+      `Resolved ${tools.length}/${configuredTools.length} tool(s) for agent '${config.id}'`,
     );
     return tools;
+  }
+
+  resolveAllowedCapabilitiesForAgent(config: AgentConfig, registry: CapabilityRegistry): string[] {
+    return [
+      ...this.resolveToolsForAgent(config, registry).map((tool) => tool.id),
+      ...this.resolveAgentsForAgent(config, registry).map((agent) => agent.id),
+    ];
   }
 
   resolveAgentsForAgent(config: AgentConfig, registry: CapabilityRegistry): AgentCapability[] {
@@ -145,4 +159,13 @@ export class CapabilityResolver {
       agents,
     };
   }
+}
+
+function isMemoryToolRef(toolRef: string): boolean {
+  return [
+    MEMORY_TOOL_IDS.remember,
+    MEMORY_TOOL_IDS.search,
+    "remember_fact",
+    "search_memory",
+  ].includes(toolRef);
 }

@@ -12,6 +12,7 @@ import type {
   MemoryEntry,
   MemorySearchOptions,
   MemorySearchResult,
+  NewMemoryEntry,
   Session,
 } from "../../src/memory/types.js";
 
@@ -126,7 +127,7 @@ export class MockLongTermMemoryStore implements LongTermMemoryStore {
   private readonly entries = new Map<string, MemoryEntry>();
   private readonly embeddings = new LocalHashEmbeddingProvider();
 
-  async save(entry: Omit<MemoryEntry, "id" | "createdAt">): Promise<MemoryEntry> {
+  async save(entry: NewMemoryEntry): Promise<MemoryEntry> {
     const memory: MemoryEntry = {
       ...entry,
       id: crypto.randomUUID(),
@@ -137,10 +138,12 @@ export class MockLongTermMemoryStore implements LongTermMemoryStore {
     return memory;
   }
 
-  async search(query: string, options: MemorySearchOptions = {}): Promise<MemorySearchResult[]> {
+  async search(query: string, options: MemorySearchOptions): Promise<MemorySearchResult[]> {
     const queryEmbedding = await this.embeddings.embed(query);
     return [...this.entries.values()]
-      .filter((entry) => !options.agentId || entry.agentId === options.agentId)
+      .filter((entry) => entry.principalId === options.principalId)
+      .filter((entry) => (entry.scope ?? "user") === (options.scope ?? "user"))
+      .filter((entry) => options.scope !== "agent" || entry.agentId === options.agentId)
       .filter((entry) => !options.sessionId || entry.sessionId === options.sessionId)
       .filter(
         (entry) => !options.tags?.length || options.tags.some((tag) => entry.tags?.includes(tag)),
@@ -154,12 +157,18 @@ export class MockLongTermMemoryStore implements LongTermMemoryStore {
       .slice(0, options.limit ?? 5);
   }
 
-  async delete(id: string): Promise<boolean> {
-    return this.entries.delete(id);
+  async delete(id: string, principalId: string): Promise<boolean> {
+    const entry = this.entries.get(id);
+    return entry?.principalId === principalId ? this.entries.delete(id) : false;
   }
 
-  async list(agentId?: string): Promise<MemoryEntry[]> {
-    return [...this.entries.values()].filter((entry) => !agentId || entry.agentId === agentId);
+  async list(
+    options: Pick<MemorySearchOptions, "principalId" | "scope" | "agentId">,
+  ): Promise<MemoryEntry[]> {
+    return [...this.entries.values()]
+      .filter((entry) => entry.principalId === options.principalId)
+      .filter((entry) => (entry.scope ?? "user") === (options.scope ?? "user"))
+      .filter((entry) => options.scope !== "agent" || entry.agentId === options.agentId);
   }
 }
 

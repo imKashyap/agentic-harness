@@ -84,6 +84,8 @@ CREATE INDEX IF NOT EXISTS idx_hitl_checkpoints_run_status
 
 CREATE TABLE IF NOT EXISTS long_term_memories (
     id VARCHAR(256) PRIMARY KEY,
+    principal_id VARCHAR(256),
+    memory_scope VARCHAR(16) NOT NULL DEFAULT 'user',
     agent_id VARCHAR(128),
     session_id VARCHAR(256),
     content TEXT NOT NULL,
@@ -93,8 +95,15 @@ CREATE TABLE IF NOT EXISTS long_term_memories (
     created_at BIGINT NOT NULL
 );
 
+-- Existing agent-owned rows have no trusted user owner and remain unavailable to scoped reads.
+ALTER TABLE long_term_memories ADD COLUMN IF NOT EXISTS principal_id VARCHAR(256);
+ALTER TABLE long_term_memories ADD COLUMN IF NOT EXISTS memory_scope VARCHAR(16) NOT NULL DEFAULT 'user';
+
 CREATE INDEX IF NOT EXISTS idx_long_term_memories_agent_created
     ON long_term_memories(agent_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_long_term_memories_principal_scope_created
+    ON long_term_memories(principal_id, memory_scope, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS llm_config_version_state (
     singleton BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (singleton),

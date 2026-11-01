@@ -4,10 +4,14 @@ import { streamSSE } from "hono/streaming";
 import { AgentRunInput } from "../../../src/core/agent/agent-runner.js";
 import { AgentHarness } from "../../../src/core/harness.js";
 import { createLogger } from "../../../src/observability/logging.js";
+import { type PrincipalIdResolver, resolvePrincipalId } from "../principal.js";
 
 const logger = createLogger("RunRoutes");
 
-export function createRunRoutes(harness: AgentHarness): Hono {
+export function createRunRoutes(
+  harness: AgentHarness,
+  principalIdResolver?: PrincipalIdResolver,
+): Hono {
   const router = new Hono();
 
   // List all registered agents
@@ -41,6 +45,7 @@ export function createRunRoutes(harness: AgentHarness): Hono {
 
     const isSSE =
       body.stream === true || c.req.header("accept")?.includes("text/event-stream") === true;
+    const principalId = await resolvePrincipalId(c.req.raw, principalIdResolver);
 
     const runInput: AgentRunInput = {
       message: body.message.trim(),
@@ -54,6 +59,7 @@ export function createRunRoutes(harness: AgentHarness): Hono {
         try {
           for await (const event of harness.runAgentStream(agentId, runInput, {
             sessionId: body.sessionId,
+            principalId,
             enableLongTermMemory: body.enableLongTermMemory,
           })) {
             await stream.writeSSE({
@@ -76,6 +82,7 @@ export function createRunRoutes(harness: AgentHarness): Hono {
       logger.info(`Handling synchronous run request for agent '${agentId}'`);
       const result = await harness.runAgent(agentId, runInput, {
         sessionId: body.sessionId,
+        principalId,
         enableLongTermMemory: body.enableLongTermMemory,
       });
 

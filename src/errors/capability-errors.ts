@@ -6,6 +6,20 @@ export class CapabilityNotFoundError extends HarnessError {
   }
 }
 
+export class CapabilityAccessDeniedError extends HarnessError {
+  constructor(
+    public readonly capabilityId: string,
+    public readonly agentId: string,
+  ) {
+    super(
+      `Agent '${agentId}' is not allowed to execute capability '${capabilityId}'`,
+      "CAPABILITY_ACCESS_DENIED",
+      403,
+      { capabilityId, agentId },
+    );
+  }
+}
+
 export class CapabilityAlreadyRegisteredError extends HarnessError {
   constructor(public readonly capabilityId: string) {
     super(`Capability already registered: ${capabilityId}`, "CAPABILITY_ALREADY_REGISTERED", 409, {

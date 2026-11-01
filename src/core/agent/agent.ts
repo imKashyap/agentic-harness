@@ -17,6 +17,10 @@ export class Agent {
     return this.config.id;
   }
 
+  get tools(): string[] {
+    return [...this.config.tools];
+  }
+
   async run(input: AgentRunInput, parentContext?: ExecutionContext): Promise<AgentRunResult> {
     const isDirectRunContext = parentContext?.agentId === this.config.id && parentContext?.runId;
     const runId = isDirectRunContext ? parentContext.runId : crypto.randomUUID();
@@ -24,6 +28,7 @@ export class Agent {
     const context: ExecutionContext = {
       runId,
       agentId: this.config.id,
+      principalId: parentContext?.principalId,
       parentRunId: isDirectRunContext ? parentContext.parentRunId : parentContext?.runId,
       parentAgentId: isDirectRunContext ? parentContext.parentAgentId : parentContext?.agentId,
       metadata: parentContext?.metadata ? { ...parentContext.metadata } : undefined,

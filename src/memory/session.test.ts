@@ -5,7 +5,7 @@ import { promises as fs } from "node:fs";
 import { describe, it } from "node:test";
 
 import { MockSessionStore, withMockPersistence } from "../../tests/support/mock-stores.js";
-import { CalculatorTool } from "../capabilities/tools/examples/calculator-tool.js";
+import { TestTool } from "../../tests/support/test-tool.js";
 import { AgentConfig } from "../core/agent/agent-config.js";
 import { AgentHarness } from "../core/harness.js";
 import { StaticPlanGenerator } from "../core/orchestration/static-plan-generator.js";
@@ -114,9 +114,9 @@ describe("ContextCompactor", () => {
       {
         role: "assistant",
         content: "calling tool",
-        toolCalls: [{ id: "call-1", name: "calculator", arguments: {} }],
+        toolCalls: [{ id: "call-1", name: "test-tool", arguments: {} }],
       },
-      { role: "tool", toolCallId: "call-1", name: "calculator", content: "42" },
+      { role: "tool", toolCallId: "call-1", name: "test-tool", content: "42" },
       { role: "assistant", content: "final 42" },
     ];
 
@@ -139,7 +139,7 @@ describe("Multi-Turn Session Memory in AgentHarness", () => {
     const sessionStore = new MockSessionStore();
     const harness = await AgentHarness.init(
       withMockPersistence({
-        tools: [new CalculatorTool()],
+        tools: [new TestTool()],
         planGenerator: new StaticPlanGenerator(),
         promptProvider: mockPromptProvider,
         sessionStore,

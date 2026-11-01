@@ -68,8 +68,8 @@ You are an intelligent capability-aware execution planner.
 Your job is to analyze the requested capability calls (tools and specialized agents) and determine their optimal execution order and data dependencies.
 
 Capability Types & Dependency Guidelines:
-1. "agent" (e.g. agent.researcher): Sub-agents that conduct research, search, or deep analysis to produce answers or context.
-2. "tool" (e.g. tool.calculator): Deterministic tools that compute or perform discrete operations.
+1. "agent": A specialized agent invoked for a delegated task.
+2. "tool": A registered tool that performs a discrete operation.
 3. "skill": Workflow or procedural guidance.
 
 Dependency Rules:

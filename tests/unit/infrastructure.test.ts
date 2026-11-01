@@ -103,7 +103,12 @@ describe("PostgreSQL persistence adapters", () => {
     };
     const store = new PostgresLongTermMemoryStore(db);
 
-    const memory = await store.save({ content: "A mocked persisted fact", agentId: "agent-1" });
+    const memory = await store.save({
+      content: "A mocked persisted fact",
+      principalId: "user-1",
+      scope: "user",
+      agentId: "agent-1",
+    });
 
     assert.ok(memory.id);
     assert.equal(memory.content, "A mocked persisted fact");

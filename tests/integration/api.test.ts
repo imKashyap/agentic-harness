@@ -107,4 +107,85 @@ describe("Apps/API Hono Server", () => {
     const delRes = await app.request("/v1/sessions/sess-api-1", { method: "DELETE" });
     assert.strictEqual(delRes.status, 200);
   });
+
+  it("returns 401 from memory endpoints when no principal is resolved", async () => {
+    const harness = await createTestHarness();
+    const app = createApp(harness, {
+      resolvePrincipalId: () => undefined,
+    });
+
+    const res = await app.request("/v1/memory", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fact: "I like spicy food" }),
+    });
+
+    assert.strictEqual(res.status, 401);
+    const data = (await res.json()) as { success: boolean; error: string };
+    assert.strictEqual(data.success, false);
+    assert.match(data.error, /Authentication is required/);
+  });
+
+  it("stores and searches memory when principal is provided via host resolver or header", async () => {
+    const harness = await createTestHarness();
+    const app = createApp(harness);
+
+    // Using header
+    const postRes = await app.request("/v1/memory", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-user-id": "test-user-1",
+      },
+      body: JSON.stringify({
+        fact: "I prefer typescript over python",
+        tags: ["preference"],
+        principalId: "attacker-id", // Must be ignored
+      }),
+    });
+
+    assert.strictEqual(postRes.status, 200);
+    const postData = (await postRes.json()) as {
+      success: boolean;
+      memory: { id: string; content: string };
+    };
+    assert.strictEqual(postData.success, true);
+    assert.strictEqual(postData.memory.content, "I prefer typescript over python");
+
+    // Search with matching principal
+    const searchRes = await app.request("/v1/memory/search", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-user-id": "test-user-1",
+      },
+      body: JSON.stringify({ query: "typescript" }),
+    });
+
+    assert.strictEqual(searchRes.status, 200);
+    const searchData = (await searchRes.json()) as {
+      success: boolean;
+      results: Array<{ content: string }>;
+    };
+    assert.strictEqual(searchData.success, true);
+    assert.strictEqual(searchData.results.length, 1);
+    assert.strictEqual(searchData.results[0]?.content, "I prefer typescript over python");
+
+    // Search with different principal returns empty
+    const otherUserSearchRes = await app.request("/v1/memory/search", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-user-id": "other-user",
+      },
+      body: JSON.stringify({ query: "typescript" }),
+    });
+
+    assert.strictEqual(otherUserSearchRes.status, 200);
+    const otherUserData = (await otherUserSearchRes.json()) as {
+      success: boolean;
+      results: Array<{ content: string }>;
+    };
+    assert.strictEqual(otherUserData.results.length, 0);
+  });
 });

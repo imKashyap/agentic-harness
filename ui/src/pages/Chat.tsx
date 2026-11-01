@@ -698,16 +698,16 @@ export const Chat = () => {
               </div>
               <div className='grid grid-cols-1 gap-2 w-full pt-2'>
                 <button
-                  onClick={() => setInput('Calculate (128 * 45) + 360 using the calculator tool.')}
+                  onClick={() => setInput('Summarize the key points from our conversation.')}
                   className='text-left text-xs p-2.5 rounded-lg border border-neutral-800 bg-neutral-900/40 hover:bg-neutral-900 hover:border-neutral-700 text-neutral-300 transition-all'
                 >
-                  ⚡ <span className='font-mono text-indigo-300'>Tool Calling</span>: Calculate (128 * 45) + 360
+                  ⚡ <span className='font-mono text-indigo-300'>Tool Calling</span>: Summarize key points
                 </button>
                 <button
-                  onClick={() => setInput('Please delegate research on modern agent architectures to the researcher agent.')}
+                  onClick={() => setInput('Break this task into steps and explain how you would approach it.')}
                   className='text-left text-xs p-2.5 rounded-lg border border-neutral-800 bg-neutral-900/40 hover:bg-neutral-900 hover:border-neutral-700 text-neutral-300 transition-all'
                 >
-                  🤝 <span className='font-mono text-purple-300'>Delegation</span>: Delegate research to researcher
+                  🤝 <span className='font-mono text-purple-300'>Planning</span>: Break down a task
                 </button>
               </div>
             </div>

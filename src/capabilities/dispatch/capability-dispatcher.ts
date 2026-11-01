@@ -2,7 +2,10 @@ import { inject, injectable } from "inversify";
 
 import { ExecutionContext } from "../../core/execution/execution-context.js";
 import { TYPES } from "../../di/types.js";
-import { CapabilityTypeError } from "../../errors/capability-errors.js";
+import {
+  CapabilityAccessDeniedError,
+  CapabilityTypeError,
+} from "../../errors/capability-errors.js";
 import { createLogger } from "../../utils/logger.js";
 import { CapabilityRegistry } from "../capability-registry.js";
 import type {
@@ -26,6 +29,9 @@ export class CapabilityDispatcher implements CapabilityExecutor {
     context: ExecutionContext,
   ): Promise<CapabilityExecutionResult> {
     logger.debug(`Dispatching capability execution: '${request.name}'`);
+    if (!context.allowedCapabilities?.includes(request.name)) {
+      throw new CapabilityAccessDeniedError(request.name, context.agentId);
+    }
     const capability = this.registry.get(request.name);
 
     switch (capability.type) {

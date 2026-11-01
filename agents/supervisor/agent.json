@@ -1,7 +1,7 @@
 {
   "id": "supervisor",
   "name": "Supervisor",
-  "description": "Coordinates user requests and delegates work to specialized agents.",
+  "description": "Helps users work through questions and tasks.",
   "model": {
     "provider": "openrouter",
     "model": "gemma-4-31b-it"
@@ -10,7 +10,13 @@
     "id": "supervisor",
     "version": "v1"
   },
-  "skills": ["skill.greeting"],
-  "tools": ["tool.calculator"],
-  "subAgents": ["agent.researcher"]
+  "skills": [],
+  "tools": [],
+  "subAgents": [],
+  "memory": {
+    "autoRecall": true,
+    "search": true,
+    "save": true,
+    "scope": "user"
+  }
 }

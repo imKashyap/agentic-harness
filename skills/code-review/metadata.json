@@ -1,7 +1,0 @@
-{
-  "id": "skill.code-review",
-  "name": "Code Review",
-  "description": "Reviews code diffs, detects bugs, security issues, and style violations.",
-  "version": "1.0.0",
-  "tags": ["coding", "review", "git"]
-}

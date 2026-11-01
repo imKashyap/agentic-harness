@@ -2,6 +2,7 @@ import { inject, injectable, unmanaged } from "inversify";
 
 import { TYPES } from "../di/types.js";
 import { Message } from "../llm/types.js";
+import type { MemorySearchOptions } from "../memory/types.js";
 import { createLogger } from "../utils/logger.js";
 import type { MemoryManager } from "./memory.js";
 
@@ -39,13 +40,17 @@ export class PromptBuilder {
    */
   public async injectRelevantMemories(
     query: string,
-    agentId?: string,
+    options: MemorySearchOptions,
     limit: number = 3,
   ): Promise<this> {
     if (!this.memoryManager || !query) return this;
 
     try {
-      const memories = await this.memoryManager.recall(query, { agentId, limit, minScore: 0.0 });
+      const memories = await this.memoryManager.recall(query, {
+        ...options,
+        limit,
+        minScore: 0.0,
+      });
       if (memories.length > 0) {
         const memoryContent = memories
           .map((m, idx) => `[Fact ${idx + 1}] ${m.entry.content}`)

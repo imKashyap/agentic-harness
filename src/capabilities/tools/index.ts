@@ -1,4 +1,4 @@
-export * from "./examples/calculator-tool.js";
+export * from "./builtin/index.js";
 export * from "./tool.js";
 export * from "./tool-capability-executor.js";
 export * from "./tool-executor.js";

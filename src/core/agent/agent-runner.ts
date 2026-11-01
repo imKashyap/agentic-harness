@@ -55,8 +55,17 @@ export class AgentRunner {
     systemPrompt: string,
   ): Promise<AgentRunResult> {
     const timeoutMs = input.timeoutMs ?? DEFAULT_AGENT_TIMEOUT_MS;
+    const allowedCapabilities = this.capabilityResolver.resolveAllowedCapabilitiesForAgent(
+      this.config,
+      this.capabilityRegistry,
+    );
+    const scopedContext: ExecutionContext = {
+      ...context,
+      allowedCapabilities,
+      memoryScope: this.config.memory?.scope ?? "user",
+    };
     return withTimeout(
-      async () => this.executeRunLoop(input, context, systemPrompt),
+      async () => this.executeRunLoop(input, scopedContext, systemPrompt),
       timeoutMs,
       `Agent '${this.config.id}' run`,
     );
@@ -107,11 +116,17 @@ export class AgentRunner {
 
       // 2. Recall Long-Term Memory (if enabled and manager available)
       let memoryPromptSection = "";
-      if (this.memoryManager && input.enableLongTermMemory !== false) {
+      if (
+        this.memoryManager &&
+        this.config.memory?.autoRecall === true &&
+        input.enableLongTermMemory !== false &&
+        context.principalId
+      ) {
         try {
           const recalled = await this.memoryManager.recall(input.message, {
+            principalId: context.principalId,
+            scope: this.config.memory?.scope ?? "user",
             agentId: this.config.id,
-            sessionId: input.sessionId,
             limit: 4,
           });
           memoryPromptSection = this.memoryManager.formatMemoryPrompt(recalled);
@@ -241,6 +256,16 @@ export class AgentRunner {
             messages,
             sessionId: input.sessionId,
           };
+        }
+
+        const allowed = new Set(context.allowedCapabilities ?? []);
+        const deniedCalls = response.toolCalls.filter((toolCall) => !allowed.has(toolCall.name));
+        if (deniedCalls.length > 0) {
+          throw new AgentExecutionError(
+            this.config.id,
+            `Model requested unauthorized capabilities: ${deniedCalls.map((call) => call.name).join(", ")}`,
+            { deniedCapabilities: deniedCalls.map((call) => call.name) },
+          );
         }
 
         logger.info(

@@ -1,4 +1,5 @@
 @baseUrl = http://localhost:3000
+@userId = default-user
 
 ### 1. Health Check & Live Metrics
 GET {{baseUrl}}/health
@@ -12,17 +13,18 @@ GET {{baseUrl}}/v1/capabilities
 ### 4. Supervisor Run (Direct Prompt)
 POST {{baseUrl}}/v1/agents/supervisor/runs
 Content-Type: application/json
+x-user-id: {{userId}}
 
 {
-  "message": "Hello! Introduce yourself and list what skills and tools you have access to."
+  "message": "Remember I like  spicy food"
 }
 
-### 5. Tool Calling Scenario (Calculator Tool)
+### 5. General Assistant Scenario
 POST {{baseUrl}}/v1/agents/supervisor/runs
 Content-Type: application/json
 
 {
-  "message": "Calculate (128 * 45) + 360 using the calculator tool."
+  "message": "Summarize the key points from this conversation."
 }
 
 ### 6. Agent Delegation Scenario (Sub-Agent Execution)
@@ -30,7 +32,7 @@ POST {{baseUrl}}/v1/agents/supervisor/runs
 Content-Type: application/json
 
 {
-  "message": "Please delegate research on modern agent architectures to the researcher agent and summarize the findings."
+  "message": "Break down a complex task into clear steps and summarize the approach."
 }
 
 ### 7. Multi-Turn Conversational Session (Turn 1: Ingest Context)
@@ -63,9 +65,9 @@ GET {{baseUrl}}/v1/sessions/debug-session-101
 ### 12. Long-Term Memory (Store Fact)
 POST {{baseUrl}}/v1/memory
 Content-Type: application/json
+x-user-id: {{userId}}
 
 {
-  "agentId": "supervisor",
   "fact": "The production database cluster was upgraded to PostgreSQL 16.2 in us-west-2.",
   "tags": ["database", "infrastructure", "production"]
 }
@@ -73,9 +75,9 @@ Content-Type: application/json
 ### 13. Long-Term Memory (Semantic Search)
 POST {{baseUrl}}/v1/memory/search
 Content-Type: application/json
+x-user-id: {{userId}}
 
 {
-  "agentId": "supervisor",
   "query": "What version of PostgreSQL are we running in prod?",
   "limit": 3
 }
@@ -83,6 +85,7 @@ Content-Type: application/json
 ### 14. Agent Run with Semantic Memory Recall Injected
 POST {{baseUrl}}/v1/agents/supervisor/runs
 Content-Type: application/json
+x-user-id: {{userId}}
 
 {
   "message": "What version of PostgreSQL is deployed in production?",

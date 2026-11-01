@@ -3,11 +3,11 @@ import "reflect-metadata";
 import assert from "node:assert";
 import { describe, it } from "node:test";
 
+import { TestTool } from "../../../tests/support/test-tool.js";
 import { SubAgentExecutor } from "../../capabilities/agents/sub-agent-executor.js";
 import { CapabilityRegistry } from "../../capabilities/capability-registry.js";
 import { CapabilityDispatcher } from "../../capabilities/dispatch/capability-dispatcher.js";
 import { Skill } from "../../capabilities/skills/skill.js";
-import { CalculatorTool } from "../../capabilities/tools/examples/calculator-tool.js";
 import { Tool } from "../../capabilities/tools/tool.js";
 import { ToolCapabilityExecutor } from "../../capabilities/tools/tool-capability-executor.js";
 import { ToolExecutor } from "../../capabilities/tools/tool-executor.js";
@@ -53,7 +53,7 @@ describe("Agent & AgentRunner with Scoping and Skill Injection", () => {
   it("scopes tools and sub-agents strictly to those declared in AgentConfig", async () => {
     const registry = new CapabilityRegistry();
     // Register 2 tools
-    registry.register(new CalculatorTool());
+    registry.register(new TestTool());
     const formatterTool: Tool = {
       id: "tool.formatter",
       name: "Formatter",
@@ -92,14 +92,14 @@ describe("Agent & AgentRunner with Scoping and Skill Injection", () => {
     );
     const orchestrator = new Orchestrator(planner, engine, new PlanValidator(registry));
 
-    // Agent configured with ONLY calculator tool and researcher sub-agent
+    // Agent configured with ONLY the test tool and researcher sub-agent
     const scopedConfig: AgentConfig = {
       id: "scoped-agent",
       name: "Scoped Agent",
       model: { provider: "mock", model: "mock-model" },
       prompt: { id: "scoped-prompt" },
       skills: [],
-      tools: ["tool.calculator"],
+      tools: ["tool.test"],
       subAgents: ["agent.researcher"],
     };
 
@@ -110,9 +110,9 @@ describe("Agent & AgentRunner with Scoping and Skill Injection", () => {
     await agent.run({ message: "Hello" });
 
     assert.ok(scriptedLLM.lastRequest);
-    // Tools should ONLY include tool.calculator (formatter is excluded)
+    // Tools should ONLY include tool.test (formatter is excluded)
     assert.strictEqual(scriptedLLM.lastRequest.tools?.length, 1);
-    assert.strictEqual(scriptedLLM.lastRequest.tools?.[0]?.name, "tool.calculator");
+    assert.strictEqual(scriptedLLM.lastRequest.tools?.[0]?.name, "tool.test");
 
     // Agents should ONLY include agent.researcher (writer is excluded)
     assert.strictEqual(scriptedLLM.lastRequest.agents?.length, 1);
@@ -121,15 +121,15 @@ describe("Agent & AgentRunner with Scoping and Skill Injection", () => {
 
   it("injects configured skill instructions into the system prompt", async () => {
     const registry = new CapabilityRegistry();
-    const greetingSkill: Skill = {
-      id: "skill.greeting",
-      name: "Greeting",
-      description: "Handles greetings politely",
+    const customSkill: Skill = {
+      id: "skill.polite_tone",
+      name: "Polite Tone",
+      description: "Ensures responses are courteous",
       type: "skill",
-      content: "- Always say welcome.\n- Keep greeting under 10 words.",
+      content: "- Always say welcome.\n- Keep response under 10 words.",
       metadata: {},
     };
-    registry.register(greetingSkill);
+    registry.register(customSkill);
 
     const planner = new Planner(new StaticPlanGenerator(), registry);
     const engine = new ExecutionEngine(
@@ -147,7 +147,7 @@ describe("Agent & AgentRunner with Scoping and Skill Injection", () => {
       name: "Friendly Agent",
       model: { provider: "mock", model: "mock-model" },
       prompt: { id: "friendly-prompt" },
-      skills: ["skill.greeting"],
+      skills: ["skill.polite_tone"],
       tools: [],
       subAgents: [],
     };
@@ -164,13 +164,13 @@ describe("Agent & AgentRunner with Scoping and Skill Injection", () => {
 
     assert.match(systemMessage, /You are a test agent\./);
     assert.match(systemMessage, /Assigned Skills & Guidelines/);
-    assert.match(systemMessage, /Skill: Greeting \(skill\.greeting\)/);
+    assert.match(systemMessage, /Skill: Polite Tone \(skill\.polite_tone\)/);
     assert.match(systemMessage, /Always say welcome\./);
   });
 
   it("handles tool calling loop and maps tool result to message history", async () => {
     const registry = new CapabilityRegistry();
-    registry.register(new CalculatorTool());
+    registry.register(new TestTool());
 
     const planner = new Planner(new StaticPlanGenerator(), registry);
     const toolExecutor = new ToolExecutor();
@@ -182,12 +182,12 @@ describe("Agent & AgentRunner with Scoping and Skill Injection", () => {
     const orchestrator = new Orchestrator(planner, engine, validator);
 
     const config: AgentConfig = {
-      id: "calc-agent",
-      name: "Calculator Agent",
+      id: "test-agent",
+      name: "Test Tool Agent",
       model: { provider: "mock", model: "mock-model" },
-      prompt: { id: "calc-prompt" },
+      prompt: { id: "test-prompt" },
       skills: [],
-      tools: ["tool.calculator"],
+      tools: ["tool.test"],
       subAgents: [],
     };
 
@@ -197,7 +197,7 @@ describe("Agent & AgentRunner with Scoping and Skill Injection", () => {
         toolCalls: [
           {
             id: "call-1",
-            name: "tool.calculator",
+            name: "tool.test",
             arguments: { expression: "12 * 12" },
           },
         ],

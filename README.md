@@ -200,18 +200,18 @@ curl -N -X POST http://localhost:3000/v1/agents/supervisor/runs \
   }'
 ```
 
-Each SSE event is emitted as `event: <type>` followed by a `data:` JSON blob — e.g. `run:start`, `token:delta`, `task:start`, `run:end`.
+Each SSE event is emitted as `event: <type>` followed by a `data:` JSON blob — e.g. `run:start`, `progressive:message`, `token:delta`, `task:start`, `run:end`.
 
 ### Semantic Long-Term Memory
 
-Store and recall facts semantically over HTTP:
+Store and recall facts semantically over HTTP after configuring the host's trusted principal resolver:
 
 ```bash
-# Ingest a fact into the vector store
+# Ingest a fact into the authenticated user's memory
 curl -X POST http://localhost:3000/v1/memory \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <application-token>" \
   -d '{
-    "agentId": "supervisor",
     "tags": ["infrastructure", "db"],
     "fact": "Production database was upgraded to PostgreSQL 16.2"
   }'
@@ -219,12 +219,14 @@ curl -X POST http://localhost:3000/v1/memory \
 # Semantic recall
 curl -X POST http://localhost:3000/v1/memory/search \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <application-token>" \
   -d '{
-    "agentId": "supervisor",
     "limit": 3,
     "query": "What database version are we running?"
   }'
 ```
+
+The API does not implement authentication itself. Configure `createApp` or `startServer` with a `resolvePrincipalId` callback that validates the application's authentication and returns its trusted user or tenant ID. Memory routes return `401` when no principal is resolved; the authorization header above is only an example input to that host callback.
 
 ### Human-in-the-Loop (HITL) Approvals
 
@@ -284,6 +286,13 @@ curl -X POST http://localhost:3000/v1/agents/supervisor/runs \
 
 ### Creating a Tool (`src/capabilities/tools/`)
 
+The harness distinguishes between:
+
+- **Built-in Subsystem Tools** (`src/capabilities/tools/builtin/`): Registered by the runtime and wired with dependencies such as `MemoryManager`. Registration makes them available; an agent receives search or save tools only when its `memory` policy grants them.
+- **User Tools**: Custom tools passed in `AgentHarness.init({ tools: [...] })` or registered dynamically via `harness.registerTool(tool)`.
+
+To create a custom tool, implement the `Tool` interface:
+
 ```typescript
 import { Tool, ToolContext, ToolResult } from "./tool.js";
 
@@ -292,6 +301,7 @@ export class WeatherTool implements Tool {
   public readonly name = "Weather Lookup";
   public readonly description = "Fetches current weather for a city";
   public readonly type = "tool" as const;
+  public readonly progressMessage = "Fetching weather report...";
   public readonly inputSchema = {
     type: "object",
     properties: { city: { type: "string" } },
@@ -311,22 +321,30 @@ export class WeatherTool implements Tool {
 
 ```json
 {
-  "id": "researcher",
-  "name": "Research Agent",
+  "id": "assistant",
+  "name": "Assistant",
   "model": {
     "provider": "openrouter",
     "model": "google/gemini-2.0-flash-001"
   },
   "prompt": {
-    "id": "researcher"
+    "id": "assistant"
   },
-  "skills": ["skill.greeting"],
-  "tools": ["tool.calculator", "tool.search_memory"],
-  "subAgents": []
+  "skills": [],
+  "tools": [],
+  "subAgents": [],
+  "memory": {
+    "autoRecall": true,
+    "search": false,
+    "save": false,
+    "scope": "user"
+  }
 }
 ```
 
-The agent config selects a provider and model ID only. Provider endpoints and
+When `autoRecall` is enabled, relevant user memories are injected into the system prompt; agent prompts do not need instructions to search for them. Search and save tools are granted separately through the agent's `memory` settings. The host application must pass a trusted `principalId` on each run; it must never come from model arguments.
+
+The agent config selects the provider and model, its explicit tool/agent/skill grants, and its memory policy. Provider endpoints and
 model metadata (such as context length and generation defaults) are resolved from
 [`config/models.yaml`](./config/models.yaml) when the harness starts. A model
 reference must match an entry under that provider; provider API keys remain

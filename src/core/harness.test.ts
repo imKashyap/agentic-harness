@@ -4,7 +4,7 @@ import assert from "node:assert";
 import { describe, it } from "node:test";
 
 import { MockRelationalDb, withMockPersistence } from "../../tests/support/mock-stores.js";
-import { CalculatorTool } from "../capabilities/tools/examples/calculator-tool.js";
+import { TestTool } from "../../tests/support/test-tool.js";
 import { AgentNotFoundError } from "../errors/orchestration-errors.js";
 import { PromptProvider } from "../prompts/prompt-provider.js";
 import { AgentConfig } from "./agent/agent-config.js";
@@ -37,7 +37,7 @@ describe("AgentHarness Facade (Server-Ready API)", () => {
   it("initializes successfully with custom tools and mock prompt provider", async () => {
     const harness = await AgentHarness.init(
       withMockPersistence({
-        tools: [new CalculatorTool()],
+        tools: [new TestTool()],
         planGenerator: new StaticPlanGenerator(),
         promptProvider: mockPromptProvider,
       }),
@@ -46,7 +46,7 @@ describe("AgentHarness Facade (Server-Ready API)", () => {
     assert.ok(harness.capabilityRegistry);
     assert.ok(harness.agentRegistry);
     assert.ok(harness.orchestrator);
-    assert.ok(harness.capabilityRegistry.has("tool.calculator"));
+    assert.ok(harness.capabilityRegistry.has("tool.test"));
   });
 
   it("allows dynamic registration of tools, skills, and agents", async () => {
@@ -59,8 +59,8 @@ describe("AgentHarness Facade (Server-Ready API)", () => {
     );
 
     // Register tool
-    harness.registerTool(new CalculatorTool());
-    assert.strictEqual(harness.capabilityRegistry.has("tool.calculator"), true);
+    harness.registerTool(new TestTool());
+    assert.strictEqual(harness.capabilityRegistry.has("tool.test"), true);
 
     // Register skill
     harness.registerSkill({
@@ -80,7 +80,7 @@ describe("AgentHarness Facade (Server-Ready API)", () => {
       model: { provider: "mock", model: "mock-model" },
       prompt: { id: "dynamic-prompt" },
       skills: ["skill.test"],
-      tools: ["tool.calculator"],
+      tools: ["tool.test"],
       subAgents: [],
     };
 
@@ -92,14 +92,14 @@ describe("AgentHarness Facade (Server-Ready API)", () => {
     assert.ok(agents.some((a) => a.id === "dynamic-agent"));
 
     const capabilities = harness.listCapabilities();
-    assert.ok(capabilities.some((c) => c.id === "tool.calculator"));
+    assert.ok(capabilities.some((c) => c.id === "tool.test"));
     assert.ok(capabilities.some((c) => c.id === "skill.test"));
   });
 
   it("runs an agent through the harness facade and handles unknown agents", async () => {
     const harness = await AgentHarness.init(
       withMockPersistence({
-        tools: [new CalculatorTool()],
+        tools: [new TestTool()],
         planGenerator: new StaticPlanGenerator(),
         promptProvider: mockPromptProvider,
       }),

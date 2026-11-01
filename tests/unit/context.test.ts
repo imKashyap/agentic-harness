@@ -42,10 +42,16 @@ describe("Context & Token Management", () => {
   it("PromptBuilder injects semantic memories", async () => {
     const store = new MockLongTermMemoryStore();
     const memory = new MemoryManager(store);
-    await memory.remember("User prefers TypeScript and dark mode", { agentId: "agent-1" });
+    await memory.remember("User prefers TypeScript and dark mode", {
+      principalId: "user-1",
+      agentId: "agent-1",
+    });
 
     const builder = new PromptBuilder("You are a helpful assistant.", memory);
-    await builder.injectRelevantMemories("What language does user prefer?", "agent-1");
+    await builder.injectRelevantMemories("What language does user prefer?", {
+      principalId: "user-1",
+      agentId: "agent-1",
+    });
 
     const prompt = builder.buildSystemPrompt();
     assert.ok(prompt.includes("You are a helpful assistant."));

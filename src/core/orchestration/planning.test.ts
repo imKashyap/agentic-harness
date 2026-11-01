@@ -3,8 +3,8 @@ import "reflect-metadata";
 import assert from "node:assert";
 import { describe, it } from "node:test";
 
+import { TestTool } from "../../../tests/support/test-tool.js";
 import { CapabilityRegistry } from "../../capabilities/capability-registry.js";
-import { CalculatorTool } from "../../capabilities/tools/examples/calculator-tool.js";
 import { LLM, LLMRequest, LLMResponse } from "../../llm/types.js";
 import { AdaptivePlanGenerator } from "./adaptive-plan-generator.js";
 import { LLMPlanGenerator } from "./llm-plan-generator.js";
@@ -32,8 +32,8 @@ describe("StaticPlanGenerator", () => {
     const generator = new StaticPlanGenerator();
     const steps = await generator.generate({
       toolCalls: [
-        { id: "call-1", name: "tool.calculator", arguments: { expression: "1 + 1" } },
-        { id: "call-2", name: "tool.calculator", arguments: { expression: "2 + 2" } },
+        { id: "call-1", name: "tool.test", arguments: { expression: "1 + 1" } },
+        { id: "call-2", name: "tool.test", arguments: { expression: "2 + 2" } },
       ],
     });
 
@@ -53,9 +53,7 @@ describe("AdaptivePlanGenerator (Fast-Path Hybrid)", () => {
     const adaptiveGen = new AdaptivePlanGenerator(staticGen, llmGen);
 
     const steps = await adaptiveGen.generate({
-      toolCalls: [
-        { id: "single-call", name: "tool.calculator", arguments: { expression: "5 * 5" } },
-      ],
+      toolCalls: [{ id: "single-call", name: "tool.test", arguments: { expression: "5 * 5" } }],
     });
 
     assert.strictEqual(steps.length, 1);
@@ -80,8 +78,8 @@ describe("AdaptivePlanGenerator (Fast-Path Hybrid)", () => {
 
     const steps = await adaptiveGen.generate({
       toolCalls: [
-        { id: "call-1", name: "tool.calculator", arguments: { expression: "2 + 2" } },
-        { id: "call-2", name: "tool.calculator", arguments: { expression: "4 * 4" } },
+        { id: "call-1", name: "tool.test", arguments: { expression: "2 + 2" } },
+        { id: "call-2", name: "tool.test", arguments: { expression: "4 * 4" } },
       ],
     });
 
@@ -100,8 +98,8 @@ describe("AdaptivePlanGenerator (Fast-Path Hybrid)", () => {
 
     const steps = await adaptiveGen.generate({
       toolCalls: [
-        { id: "call-1", name: "tool.calculator", arguments: {} },
-        { id: "call-2", name: "tool.calculator", arguments: {} },
+        { id: "call-1", name: "tool.test", arguments: {} },
+        { id: "call-2", name: "tool.test", arguments: {} },
       ],
     });
 
@@ -114,7 +112,7 @@ describe("AdaptivePlanGenerator (Fast-Path Hybrid)", () => {
 describe("LLMPlanGenerator (Capability-Aware)", () => {
   it("passes capability metadata and arguments to LLM prompt", async () => {
     const registry = new CapabilityRegistry();
-    registry.register(new CalculatorTool());
+    registry.register(new TestTool());
     registry.register({
       id: "agent.researcher",
       name: "Researcher",
@@ -140,7 +138,7 @@ describe("LLMPlanGenerator (Capability-Aware)", () => {
           name: "agent.researcher",
           arguments: { task: "Find earth diameter" },
         },
-        { id: "call-calc", name: "tool.calculator", arguments: { expression: "12742 * 3.14159" } },
+        { id: "call-calc", name: "tool.test", arguments: { expression: "12742 * 3.14159" } },
       ],
     });
 
@@ -153,13 +151,13 @@ describe("LLMPlanGenerator (Capability-Aware)", () => {
     // Verify capability awareness in the prompt sent to LLM
     const userPrompt = mockLLM.lastRequest?.messages.find((m) => m.role === "user")?.content ?? "";
     assert.match(userPrompt, /agent\.researcher/);
-    assert.match(userPrompt, /tool\.calculator/);
+    assert.match(userPrompt, /tool\.test/);
     assert.match(userPrompt, /Research agent that looks up factual information/);
   });
 
   it("handles markdown code fence JSON responses", async () => {
     const registry = new CapabilityRegistry();
-    registry.register(new CalculatorTool());
+    registry.register(new TestTool());
 
     const fencedResponse =
       "```json\n" +
@@ -172,7 +170,7 @@ describe("LLMPlanGenerator (Capability-Aware)", () => {
     const generator = new LLMPlanGenerator(mockLLM, registry);
 
     const steps = await generator.generate({
-      toolCalls: [{ id: "call-1", name: "tool.calculator", arguments: { expression: "10 * 2" } }],
+      toolCalls: [{ id: "call-1", name: "tool.test", arguments: { expression: "10 * 2" } }],
     });
 
     assert.strictEqual(steps.length, 1);
@@ -184,8 +182,7 @@ describe("LLMPlanGenerator (Capability-Aware)", () => {
     const generator = new LLMPlanGenerator(new MockPlannerLLM("not valid json"), registry);
 
     await assert.rejects(
-      () =>
-        generator.generate({ toolCalls: [{ id: "c1", name: "tool.calculator", arguments: {} }] }),
+      () => generator.generate({ toolCalls: [{ id: "c1", name: "tool.test", arguments: {} }] }),
       /invalid JSON/i,
     );
 
@@ -199,7 +196,7 @@ describe("LLMPlanGenerator (Capability-Aware)", () => {
     await assert.rejects(
       () =>
         badIdGenerator.generate({
-          toolCalls: [{ id: "c1", name: "tool.calculator", arguments: {} }],
+          toolCalls: [{ id: "c1", name: "tool.test", arguments: {} }],
         }),
       /unknown toolCallId/i,
     );
@@ -208,7 +205,7 @@ describe("LLMPlanGenerator (Capability-Aware)", () => {
 
 describe("PlanValidator (Capability-Aware)", () => {
   const registry = new CapabilityRegistry();
-  registry.register(new CalculatorTool());
+  registry.register(new TestTool());
   const validator = new PlanValidator(registry);
 
   it("validates valid plans with registered capabilities", () => {
@@ -220,14 +217,14 @@ describe("PlanValidator (Capability-Aware)", () => {
           {
             id: "t1",
             type: "capability",
-            capability: "tool.calculator",
+            capability: "tool.test",
             input: {},
             status: "pending",
           },
           {
             id: "t2",
             type: "capability",
-            capability: "tool.calculator",
+            capability: "tool.test",
             input: {},
             status: "pending",
             dependsOn: ["t1"],
@@ -264,7 +261,7 @@ describe("PlanValidator (Capability-Aware)", () => {
           {
             id: "t1",
             type: "capability",
-            capability: "tool.calculator",
+            capability: "tool.test",
             input: {},
             status: "pending",
             dependsOn: ["missing-task"],
@@ -281,7 +278,7 @@ describe("PlanValidator (Capability-Aware)", () => {
           {
             id: "a",
             type: "capability",
-            capability: "tool.calculator",
+            capability: "tool.test",
             input: {},
             status: "pending",
             dependsOn: ["b"],
@@ -289,7 +286,7 @@ describe("PlanValidator (Capability-Aware)", () => {
           {
             id: "b",
             type: "capability",
-            capability: "tool.calculator",
+            capability: "tool.test",
             input: {},
             status: "pending",
             dependsOn: ["a"],
@@ -303,17 +300,17 @@ describe("PlanValidator (Capability-Aware)", () => {
 describe("Planner with CapabilityRegistry", () => {
   it("enriches request and creates execution plan", async () => {
     const registry = new CapabilityRegistry();
-    registry.register(new CalculatorTool());
+    registry.register(new TestTool());
 
     const planGenerator = new StaticPlanGenerator();
     const planner = new Planner(planGenerator, registry);
 
     const plan = await planner.createPlan({
-      toolCalls: [{ id: "calc-1", name: "tool.calculator", arguments: { expression: "5 + 5" } }],
+      toolCalls: [{ id: "test-1", name: "tool.test", arguments: { expression: "5 + 5" } }],
     });
 
     assert.strictEqual(plan.tasks.length, 1);
-    assert.strictEqual(plan.tasks[0]?.capability, "tool.calculator");
+    assert.strictEqual(plan.tasks[0]?.capability, "tool.test");
     assert.strictEqual(plan.tasks[0]?.status, "pending");
   });
 });
