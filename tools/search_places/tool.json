@@ -1,0 +1,30 @@
+{
+  "id": "tool.search_places",
+  "name": "Search Places",
+  "description": "Searches for attractions, restaurants, accommodations, and points of interest in a destination city or region.",
+  "type": "tool",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "location": {
+        "type": "string",
+        "description": "The destination city, region, or country (e.g. 'Tokyo', 'Kyoto', 'Paris', 'Rome', 'New York')"
+      },
+      "category": {
+        "type": "string",
+        "enum": ["attraction", "restaurant", "hotel", "all"],
+        "description": "Category of places to search (default: 'all')"
+      },
+      "query": {
+        "type": "string",
+        "description": "Specific place name, activity, or cuisine (e.g. 'ramen', 'art museum', 'boutique hotel', 'gardens')"
+      },
+      "limit": {
+        "type": "number",
+        "description": "Maximum number of results to return (default: 5)"
+      }
+    },
+    "required": ["location"]
+  },
+  "progressMessage": "Searching places in {location}..."
+}

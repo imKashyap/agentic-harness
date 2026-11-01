@@ -1,0 +1,22 @@
+{
+  "id": "destination-researcher",
+  "name": "Destination Researcher",
+  "description": "Conducts deep destination investigations into local attractions, neighborhoods, culture, and climate.",
+  "model": {
+    "provider": "openrouter",
+    "model": "gemma-4-31b-it"
+  },
+  "prompt": {
+    "id": "destination-researcher",
+    "version": "v1"
+  },
+  "skills": [],
+  "tools": ["tool.search_places", "tool.get_weather"],
+  "subAgents": [],
+  "memory": {
+    "autoRecall": true,
+    "search": true,
+    "save": false,
+    "scope": "user"
+  }
+}

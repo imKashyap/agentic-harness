@@ -1,0 +1,21 @@
+{
+  "id": "tool.get_weather",
+  "name": "Get Weather",
+  "description": "Retrieves live weather forecasts via Open-Meteo (open-meteo.com) and seasonal climate patterns with packing recommendations for any destination.",
+  "type": "tool",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "location": {
+        "type": "string",
+        "description": "Destination city, region, or country (e.g. 'Kyoto', 'Tokyo', 'Paris', 'Zurich')"
+      },
+      "seasonOrMonth": {
+        "type": "string",
+        "description": "Optional travel month or season (e.g. 'November', 'Spring', 'October', 'Summer', 'current')"
+      }
+    },
+    "required": ["location"]
+  },
+  "progressMessage": "Checking weather in {location}..."
+}

@@ -1,6 +1,6 @@
 import { createLogger } from "../utils/logger.js";
 import { Capability } from "./capability.js";
-import { CapabilityLoader } from "./capability-loader.js";
+import { CapabilityLoaderInterface } from "./capability-loader.js";
 import { CapabilityRegistry } from "./capability-registry.js";
 
 const logger = createLogger("CapabilityManager");
@@ -8,7 +8,7 @@ const logger = createLogger("CapabilityManager");
 export class CapabilityManager {
   constructor(
     private readonly registry: CapabilityRegistry,
-    private readonly loaders: CapabilityLoader[],
+    private readonly loaders: CapabilityLoaderInterface[],
   ) {}
 
   async load(): Promise<void> {

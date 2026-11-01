@@ -12,7 +12,7 @@
   },
   "skills": [],
   "tools": [],
-  "subAgents": [],
+  "subAgents": ["agent.travel-planner"],
   "memory": {
     "autoRecall": true,
     "search": true,

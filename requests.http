@@ -129,3 +129,30 @@ Content-Type: application/json
 
 ### 20. Delete Session
 DELETE {{baseUrl}}/v1/sessions/debug-session-101
+
+### 21. Travel Planning via Supervisor (Delegates to Travel Planner)
+POST {{baseUrl}}/v1/agents/supervisor/runs
+Content-Type: application/json
+x-user-id: {{userId}}
+
+{
+  "message": "I'd like to plan a 5-day trip to Kyoto in November for 2 people with a moderate budget. Can you help me create an itinerary and calculate the estimated costs?"
+}
+
+### 22. Direct Travel Planner Run (Itinerary & Budget Estimation)
+POST {{baseUrl}}/v1/agents/travel-planner/runs
+Content-Type: application/json
+x-user-id: {{userId}}
+
+{
+  "message": "Plan a 3-day Tokyo trip focusing on cultural attractions, sushi dining, and scenic views with weather advice and an itemized budget."
+}
+
+### 23. Destination Research Run (Deep Neighborhood & Climate Analysis)
+POST {{baseUrl}}/v1/agents/destination-researcher/runs
+Content-Type: application/json
+x-user-id: {{userId}}
+
+{
+  "message": "Compare Kyoto and Tokyo for travel in late autumn. Detail weather, top sights, and neighborhood recommendations."
+}

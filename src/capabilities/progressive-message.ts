@@ -16,12 +16,59 @@ export function formatProgressMessage(
         // Fallback to default formatting if custom function throws
       }
     } else if (typeof customMessage === "string" && customMessage.trim().length > 0) {
-      return customMessage.trim();
+      let interpolated = customMessage.trim();
+      if (input && typeof input === "object") {
+        for (const [key, val] of Object.entries(input as Record<string, unknown>)) {
+          if (typeof val === "string" || typeof val === "number") {
+            interpolated = interpolated.replace(new RegExp(`\\{${key}\\}`, "g"), String(val));
+          }
+        }
+      }
+      return interpolated;
     }
   }
 
   const rawId = capability.replace(/^(tool|agent)\./, "");
   const inputObj = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
+
+  // Travel Tools & Agents
+  if (rawId === "search_places") {
+    if (typeof inputObj.location === "string" && inputObj.location.trim().length > 0) {
+      return `Searching places in ${inputObj.location.trim()}...`;
+    }
+    return `Searching places...`;
+  }
+
+  if (rawId === "get_weather") {
+    if (typeof inputObj.location === "string" && inputObj.location.trim().length > 0) {
+      return `Checking weather in ${inputObj.location.trim()}...`;
+    }
+    return `Checking weather conditions...`;
+  }
+
+  if (rawId === "calculate_trip_budget") {
+    if (typeof inputObj.destination === "string" && inputObj.destination.trim().length > 0) {
+      return `Calculating trip budget for ${inputObj.destination.trim()}...`;
+    }
+    return `Calculating trip budget...`;
+  }
+
+  if (rawId === "travel-planner") {
+    const task =
+      typeof inputObj.task === "string"
+        ? inputObj.task
+        : typeof inputObj.message === "string"
+          ? inputObj.message
+          : "";
+    if (task && task.length < 50) {
+      return `Consulting Travel Planner on "${task}"...`;
+    }
+    return `Consulting Travel Planner...`;
+  }
+
+  if (rawId === "destination-researcher") {
+    return `Researching destination details...`;
+  }
 
   // Sub-agent delegation
   if (capability.startsWith("agent.") || capability.startsWith("subagent.")) {

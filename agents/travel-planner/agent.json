@@ -1,0 +1,22 @@
+{
+  "id": "travel-planner",
+  "name": "Travel Planner",
+  "description": "Plans trips, compares destinations, builds detailed day-by-day itineraries, and estimates budgets.",
+  "model": {
+    "provider": "openrouter",
+    "model": "gemma-4-31b-it"
+  },
+  "prompt": {
+    "id": "travel-planner",
+    "version": "v1"
+  },
+  "skills": ["skill.itinerary_planning", "skill.travel_budgeting"],
+  "tools": ["tool.search_places", "tool.get_weather", "tool.calculate_trip_budget"],
+  "subAgents": ["agent.destination-researcher"],
+  "memory": {
+    "autoRecall": true,
+    "search": true,
+    "save": true,
+    "scope": "user"
+  }
+}

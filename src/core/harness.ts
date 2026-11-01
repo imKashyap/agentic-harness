@@ -2,16 +2,13 @@ import "reflect-metadata";
 
 import { Container, inject, injectable } from "inversify";
 
-import { AgentCapabilityLoader } from "../capabilities/agents/agent-capability-loader.js";
 import { Capability } from "../capabilities/capability.js";
-import { CapabilityLoader } from "../capabilities/capability-loader.js";
+import { CapabilityLoader, CapabilityLoaderInterface } from "../capabilities/capability-loader.js";
 import { CapabilityManager } from "../capabilities/capability-manager.js";
 import { CapabilityRegistry } from "../capabilities/capability-registry.js";
 import { CapabilityResolver } from "../capabilities/resolution/capability-resolver.js";
 import { Skill } from "../capabilities/skills/skill.js";
-import { SkillLoader } from "../capabilities/skills/skill-loader.js";
 import { Tool } from "../capabilities/tools/tool.js";
-import { ToolLoader } from "../capabilities/tools/tool-loader.js";
 import { createHarnessContainer } from "../di/container.js";
 import { TYPES } from "../di/types.js";
 import { AgentNotFoundError } from "../errors/orchestration-errors.js";
@@ -46,9 +43,10 @@ export interface HarnessOptions {
   agentsDir?: string;
   modelsConfigPath?: string;
   skillsDir?: string;
+  toolsDir?: string;
   promptsDir?: string;
   tools?: Tool[];
-  customLoaders?: CapabilityLoader[];
+  customLoaders?: CapabilityLoaderInterface[];
   planGenerator?: PlanGenerator;
   promptProvider?: PromptProvider;
   sessionStore?: SessionStore;
@@ -103,6 +101,7 @@ export class AgentHarness {
     const configLoader = container.get<AgentConfigLoader>(TYPES.AgentConfigLoader);
     const agentsDir = options.agentsDir ?? "./agents";
     const skillsDir = options.skillsDir ?? "./skills";
+    const toolsDir = options.toolsDir ?? "./tools";
     const tools = options.tools ?? [];
 
     const builtinTools = container.isBound(TYPES.BuiltinTools)
@@ -110,12 +109,17 @@ export class AgentHarness {
       : [];
 
     // ─────────────────────────────────────
-    // Capability discovery
+    // Capability discovery (agent-driven)
     // ─────────────────────────────────────
-    const loaders: CapabilityLoader[] = [
-      new SkillLoader(skillsDir),
-      new AgentCapabilityLoader(agentsDir),
-      new ToolLoader([...tools, ...builtinTools]),
+    const capabilityLoader = new CapabilityLoader({
+      agentsDir,
+      skillsDir,
+      toolsDir,
+      inMemoryTools: [...tools, ...builtinTools],
+    });
+
+    const loaders: CapabilityLoaderInterface[] = [
+      capabilityLoader,
       ...(options.customLoaders ?? []),
     ];
 
@@ -126,13 +130,24 @@ export class AgentHarness {
     harness.container = container;
     await container.get<ConfigCache>(TYPES.ConfigCache).initialize();
 
-    // Load the built-in agent configs when present.
-    await registerAgentConfigIfPresent(
-      configLoader,
-      harness,
-      `${agentsDir}/supervisor/agent.json`,
-      "supervisor",
-    );
+    // Register all discovered agent configs into AgentRegistry
+    const discoveredConfigs = capabilityLoader.getDiscoveredAgentConfigs();
+    for (const agentConfig of discoveredConfigs) {
+      if (!harness.agentRegistry.has(agentConfig.id)) {
+        harness.registerAgent(agentConfig);
+        logger.info(`Registered runnable agent '${agentConfig.id}' from discovered file config`);
+      }
+    }
+
+    // Fallback: Ensure supervisor is registered if present and not already registered
+    if (!harness.agentRegistry.has("supervisor")) {
+      await registerAgentConfigIfPresent(
+        configLoader,
+        harness,
+        `${agentsDir}/supervisor/agent.json`,
+        "supervisor",
+      );
+    }
 
     logger.info("AgentHarness initialized successfully via Inversify container");
     return harness;

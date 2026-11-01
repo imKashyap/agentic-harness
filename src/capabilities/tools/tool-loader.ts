@@ -1,10 +1,10 @@
 import { createLogger } from "../../utils/logger.js";
-import { CapabilityLoader } from "../capability-loader.js";
+import { CapabilityLoaderInterface } from "../capability-loader.js";
 import { Tool } from "./tool.js";
 
 const logger = createLogger("ToolLoader");
 
-export class ToolLoader implements CapabilityLoader {
+export class ToolLoader implements CapabilityLoaderInterface {
   constructor(private readonly tools: Tool[] = []) {}
 
   async loadAll(): Promise<Tool[]> {

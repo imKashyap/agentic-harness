@@ -8,7 +8,7 @@ const logger = createLogger("Agent");
 
 export class Agent {
   constructor(
-    private readonly config: AgentConfig,
+    public readonly config: AgentConfig,
     private readonly promptProvider: PromptProvider,
     private readonly runner: AgentRunner,
   ) {}

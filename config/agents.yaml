@@ -14,3 +14,11 @@ agents:
   - agentId: supervisor
     modelId: openrouter/gemma
     inferenceProfileId: planner_default
+
+  - agentId: travel-planner
+    modelId: openrouter/gemma
+    inferenceProfileId: planner_default
+
+  - agentId: destination-researcher
+    modelId: openrouter/gemma
+    inferenceProfileId: planner_default

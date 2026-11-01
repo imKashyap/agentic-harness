@@ -5,6 +5,6 @@
     "declaration": false,
     "sourceMap": false
   },
-  "include": ["src/**/*.ts", "apps/**/*.ts"],
+  "include": ["src/**/*.ts", "apps/**/*.ts", "tools/**/*.ts"],
   "exclude": ["dist", "node_modules", "src/**/*.test.ts", "apps/**/*.test.ts", "tests/**/*.ts"]
 }
