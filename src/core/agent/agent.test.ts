@@ -168,6 +168,82 @@ describe("Agent & AgentRunner with Scoping and Skill Injection", () => {
     assert.match(systemMessage, /Always say welcome\./);
   });
 
+  it("attaches skill, tool, and sub-agent prompts to the system prompt in sequential order", async () => {
+    const registry = new CapabilityRegistry();
+    const customSkill: Skill = {
+      id: "skill.planning",
+      name: "Planning Skill",
+      description: "Guidelines for multi-step planning",
+      type: "skill",
+      content: "- Step 1: Analyze. Step 2: Act.",
+      metadata: {},
+    };
+    registry.register(customSkill);
+    registry.register(new TestTool());
+    registry.register({
+      id: "agent.helper",
+      agentId: "helper",
+      name: "Helper Agent",
+      description: "Assists with specialized tasks",
+      type: "agent",
+    });
+
+    const planner = new Planner(new StaticPlanGenerator(), registry);
+    const engine = new ExecutionEngine(
+      new CapabilityDispatcher(
+        registry,
+        new ToolCapabilityExecutor(registry, new ToolExecutor()),
+        new SubAgentExecutor(new AgentRegistry()),
+      ),
+      new Scheduler(),
+    );
+    const orchestrator = new Orchestrator(planner, engine, new PlanValidator(registry));
+
+    const config: AgentConfig = {
+      id: "all-capabilities-agent",
+      name: "All Capabilities Agent",
+      model: { provider: "mock", model: "mock-model" },
+      prompt: { id: "test-prompt" },
+      skills: ["skill.planning"],
+      tools: ["tool.test"],
+      subAgents: ["agent.helper"],
+    };
+
+    const scriptedLLM = new ScriptedLLM([{ content: "Ready to proceed." }]);
+    const runner = new AgentRunner(config, scriptedLLM, registry, orchestrator);
+    const agent = new Agent(config, mockPromptProvider, runner);
+
+    await agent.run({ message: "Hello" });
+
+    assert.ok(scriptedLLM.lastRequest);
+    const systemMessage =
+      scriptedLLM.lastRequest.messages.find((m) => m.role === "system")?.content ?? "";
+
+    // 1. Base prompt appears first
+    const baseIdx = systemMessage.indexOf("You are a test agent.");
+    assert.ok(baseIdx !== -1, "Base prompt must be present");
+
+    // 2. Skill prompt appears after base prompt
+    const skillIdx = systemMessage.indexOf("## Assigned Skills & Guidelines");
+    assert.ok(skillIdx !== -1, "Skills section must be present");
+    assert.ok(skillIdx > baseIdx, "Skills section must appear after base prompt");
+
+    // 3. Tool prompt appears after skills
+    const toolIdx = systemMessage.indexOf("## Available Tools");
+    assert.ok(toolIdx !== -1, "Tools section must be present");
+    assert.ok(toolIdx > skillIdx, "Tools section must appear after skills section");
+
+    // 4. Sub-agent prompt appears after tools
+    const subAgentIdx = systemMessage.indexOf("## Available Sub-Agents");
+    assert.ok(subAgentIdx !== -1, "Sub-agents section must be present");
+    assert.ok(subAgentIdx > toolIdx, "Sub-agents section must appear after tools section");
+
+    // Content checks
+    assert.match(systemMessage, /Skill: Planning Skill \(skill\.planning\)/);
+    assert.match(systemMessage, /Tool: Test Tool \(`tool\.test`\)/);
+    assert.match(systemMessage, /Sub-Agent: Helper Agent \(`agent\.helper`\)/);
+  });
+
   it("handles tool calling loop and maps tool result to message history", async () => {
     const registry = new CapabilityRegistry();
     registry.register(new TestTool());

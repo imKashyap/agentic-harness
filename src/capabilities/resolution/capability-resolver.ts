@@ -126,6 +126,57 @@ export class CapabilityResolver {
     )}`;
   }
 
+  formatToolsPrompt(tools: Tool[]): string {
+    if (tools.length === 0) {
+      return "";
+    }
+
+    const sections = tools.map((tool) => {
+      let paramDoc = "";
+      if (tool.inputSchema && typeof tool.inputSchema === "object") {
+        const props = (tool.inputSchema.properties ?? {}) as Record<
+          string,
+          Record<string, unknown>
+        >;
+        const reqs = Array.isArray(tool.inputSchema.required)
+          ? (tool.inputSchema.required as string[])
+          : [];
+        const propEntries = Object.entries(props);
+        if (propEntries.length > 0) {
+          const formattedProps = propEntries
+            .map(([key, prop]) => {
+              const req = reqs.includes(key) ? "required" : "optional";
+              const type = prop?.type ? String(prop.type) : "any";
+              const desc = prop?.description ? `: ${prop.description}` : "";
+              const enumVals = Array.isArray(prop?.enum) ? `, enum: [${prop.enum.join(", ")}]` : "";
+              return `  - \`${key}\` (${type}, ${req}${enumVals})${desc}`;
+            })
+            .join("\n");
+          paramDoc = `\nParameters:\n${formattedProps}`;
+        }
+      }
+      return `### Tool: ${tool.name} (\`${tool.id}\`)\n${tool.description}${paramDoc}`;
+    });
+
+    return `\n\n## Available Tools\nYou have access to the following tools. Use these tools whenever needed to perform operations or retrieve live information rather than generating answers on your own:\n\n${sections.join(
+      "\n\n---\n\n",
+    )}`;
+  }
+
+  formatSubAgentsPrompt(agents: AgentCapability[]): string {
+    if (agents.length === 0) {
+      return "";
+    }
+
+    const sections = agents.map((agent) => {
+      return `### Sub-Agent: ${agent.name} (\`${agent.id}\`)\n${agent.description.trim()}\nParameters:\n  - \`task\` (string, required): The task or question to delegate to this sub-agent.`;
+    });
+
+    return `\n\n## Available Sub-Agents\nYou have access to the following specialized sub-agents. Delegate tasks to them whenever their specialized capabilities or domain expertise are required rather than answering on your own:\n\n${sections.join(
+      "\n\n---\n\n",
+    )}`;
+  }
+
   resolveForLLM(capabilities: Capability[]): LLMCapabilityContext {
     const skills = capabilities
       .filter((capability): capability is Skill => capability.type === "skill")

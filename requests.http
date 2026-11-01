@@ -16,7 +16,7 @@ Content-Type: application/json
 x-user-id: {{userId}}
 
 {
-  "message": "Remember I like  spicy food"
+  "message": "Plan 2 day trip to bangalore"
 }
 
 ### 5. General Assistant Scenario

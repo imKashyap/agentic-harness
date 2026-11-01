@@ -35,6 +35,27 @@ export class PromptBuilder {
     return this;
   }
 
+  public attachSkills(skillsPrompt: string): this {
+    if (skillsPrompt?.trim()) {
+      this.sections.push({ content: skillsPrompt.trim() });
+    }
+    return this;
+  }
+
+  public attachTools(toolsPrompt: string): this {
+    if (toolsPrompt?.trim()) {
+      this.sections.push({ content: toolsPrompt.trim() });
+    }
+    return this;
+  }
+
+  public attachSubAgents(subAgentsPrompt: string): this {
+    if (subAgentsPrompt?.trim()) {
+      this.sections.push({ content: subAgentsPrompt.trim() });
+    }
+    return this;
+  }
+
   /**
    * Injects recalled semantic memories into the system prompt context.
    */

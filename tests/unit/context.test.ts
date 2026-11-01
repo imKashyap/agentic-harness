@@ -57,4 +57,23 @@ describe("Context & Token Management", () => {
     assert.ok(prompt.includes("You are a helpful assistant."));
     assert.ok(prompt.includes("User prefers TypeScript"));
   });
+
+  it("PromptBuilder attaches skills, tools, and subagents prompt sections in order", () => {
+    const builder = new PromptBuilder("Base agent prompt");
+    builder
+      .attachSkills("Skills section content")
+      .attachTools("Tools section content")
+      .attachSubAgents("Subagents section content");
+
+    const prompt = builder.buildSystemPrompt();
+    const baseIdx = prompt.indexOf("Base agent prompt");
+    const skillIdx = prompt.indexOf("Skills section content");
+    const toolIdx = prompt.indexOf("Tools section content");
+    const subAgentIdx = prompt.indexOf("Subagents section content");
+
+    assert.ok(baseIdx !== -1);
+    assert.ok(skillIdx > baseIdx);
+    assert.ok(toolIdx > skillIdx);
+    assert.ok(subAgentIdx > toolIdx);
+  });
 });

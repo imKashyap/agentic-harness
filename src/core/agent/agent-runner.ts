@@ -114,7 +114,33 @@ export class AgentRunner {
         );
       }
 
-      // 2. Recall Long-Term Memory (if enabled and manager available)
+      // 2. Resolve tools
+      const assignedTools = this.capabilityResolver.resolveToolsForAgent(
+        this.config,
+        this.capabilityRegistry,
+      );
+      const toolsPromptSection = this.capabilityResolver.formatToolsPrompt(assignedTools);
+
+      if (assignedTools.length > 0) {
+        logger.info(
+          `Injected ${assignedTools.length} tool(s) into system prompt for agent '${this.config.id}'`,
+        );
+      }
+
+      // 3. Resolve sub-agents
+      const assignedAgents = this.capabilityResolver.resolveAgentsForAgent(
+        this.config,
+        this.capabilityRegistry,
+      );
+      const subAgentsPromptSection = this.capabilityResolver.formatSubAgentsPrompt(assignedAgents);
+
+      if (assignedAgents.length > 0) {
+        logger.info(
+          `Injected ${assignedAgents.length} sub-agent(s) into system prompt for agent '${this.config.id}'`,
+        );
+      }
+
+      // 4. Recall Long-Term Memory (if enabled and manager available)
       let memoryPromptSection = "";
       if (
         this.memoryManager &&
@@ -147,9 +173,14 @@ export class AgentRunner {
         }
       }
 
-      const fullSystemPrompt = systemPrompt + skillsPromptSection + memoryPromptSection;
+      const fullSystemPrompt =
+        systemPrompt +
+        skillsPromptSection +
+        toolsPromptSection +
+        subAgentsPromptSection +
+        memoryPromptSection;
 
-      // 3. Assemble message history
+      // 5. Assemble message history
       const previousHistory = (input.history ?? []).filter((m) => m.role !== "system");
 
       const rawMessages: Message[] = [
