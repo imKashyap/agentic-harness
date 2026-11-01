@@ -13,7 +13,7 @@ import type { MemorySearchResult } from '../api/memory';
 
 export const Memory = () => {
   const [factInput, setFactInput] = useState('');
-  const [factAgent, setFactAgent] = useState('supervisor-agent');
+  const [factAgent, setFactAgent] = useState('supervisor');
   const [factTags, setFactTags] = useState('');
   const [storeStatus, setStoreStatus] = useState<string | null>(null);
 
@@ -97,7 +97,7 @@ export const Memory = () => {
                   type='text'
                   value={factAgent}
                   onChange={(e) => setFactAgent(e.target.value)}
-                  placeholder='supervisor-agent'
+                  placeholder='supervisor'
                   className='w-full bg-neutral-950 border border-neutral-800 focus:border-indigo-500 rounded-lg px-3 py-2 text-xs text-neutral-100 placeholder-neutral-500 focus:outline-none'
                 />
               </div>

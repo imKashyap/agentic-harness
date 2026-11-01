@@ -75,7 +75,7 @@ export const Sessions = () => {
           <MessageSquare size={32} className='mx-auto opacity-30 text-neutral-400' />
           <div>No active conversation sessions found.</div>
           <Link
-            to='/agents/supervisor-agent'
+            to='/agents/supervisor'
             className='inline-block px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md'
           >
             Start a New Conversation
@@ -150,7 +150,7 @@ export const Sessions = () => {
                     </button>
 
                     <Link
-                      to={`/agents/${sessionDetail?.session?.agentId || 'supervisor-agent'}?sessionId=${selectedSessionId}`}
+                      to={`/agents/${sessionDetail?.session?.agentId || 'supervisor'}?sessionId=${selectedSessionId}`}
                       className='inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md transition-all'
                     >
                       <span>Resume Chat</span>

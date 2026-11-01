@@ -460,7 +460,7 @@ export const Chat = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const currentAgentId = routeAgentId || 'supervisor-agent';
+  const currentAgentId = routeAgentId || 'supervisor';
   const currentSessionId = searchParams.get('sessionId') || '';
 
   const [input, setInput] = useState('');

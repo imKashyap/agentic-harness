@@ -131,8 +131,8 @@ export class AgentHarness {
     await registerAgentConfigIfPresent(
       configLoader,
       harness,
-      `${agentsDir}/supervisor-agent/agent.json`,
-      "supervisor-agent",
+      `${agentsDir}/supervisor/agent.json`,
+      "supervisor",
     );
     await registerAgentConfigIfPresent(
       configLoader,

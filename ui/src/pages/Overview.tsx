@@ -80,7 +80,7 @@ export const Overview = () => {
 
           <div className='flex flex-wrap gap-3 shrink-0'>
             <Link
-              to='/agents/supervisor-agent'
+              to='/agents/supervisor'
               className='inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30 transition-all hover:scale-105 active:scale-95'
             >
               <Zap size={15} />
