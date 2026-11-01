@@ -17,6 +17,8 @@ export interface Tool extends Capability {
 
   requiresApproval?: boolean | ((input: unknown, context: ToolContext) => boolean);
 
+  progressMessage?: string | ((input: unknown) => string);
+
   timeoutMs?: number;
 
   retryPolicy?: Partial<RetryPolicy>;

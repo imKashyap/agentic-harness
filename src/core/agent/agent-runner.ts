@@ -269,6 +269,16 @@ export class AgentRunner {
           timestamp: Date.now(),
         });
 
+        if (response.toolCalls.length > 1) {
+          this.eventBus?.emit("progressive:message", {
+            runId: context.runId,
+            agentId: this.config.id,
+            stage: "planning",
+            message: `Planning execution of ${response.toolCalls.length} tool actions in parallel...`,
+            timestamp: Date.now(),
+          });
+        }
+
         const plan = await this.orchestrator.plan({
           toolCalls: response.toolCalls,
           context,

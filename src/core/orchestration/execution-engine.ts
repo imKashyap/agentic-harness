@@ -2,6 +2,7 @@ import { inject, injectable, optional } from "inversify";
 
 import { CapabilityRegistry } from "../../capabilities/capability-registry.js";
 import type { CapabilityExecutor } from "../../capabilities/dispatch/capability-executor.js";
+import { formatProgressMessage } from "../../capabilities/progressive-message.js";
 import type { Tool } from "../../capabilities/tools/tool.js";
 import { TYPES } from "../../di/types.js";
 import { HarnessEventBus } from "../../events/event-bus.js";
@@ -71,6 +72,30 @@ export class ExecutionEngine {
             taskId: task.id,
             capability: task.capability,
             input: task.input,
+            timestamp: startTime,
+          });
+
+          const customProgress = (() => {
+            try {
+              if (this.capabilityRegistry?.has(task.capability)) {
+                const cap = this.capabilityRegistry.get(task.capability);
+                if (cap.type === "tool") {
+                  return (cap as Tool).progressMessage;
+                }
+              }
+            } catch {
+              // ignore
+            }
+            return undefined;
+          })();
+
+          this.eventBus?.emit("progressive:message", {
+            runId: context.runId,
+            agentId: context.agentId,
+            taskId: task.id,
+            capability: task.capability,
+            stage: task.capability.startsWith("agent.") ? "delegating" : "action",
+            message: formatProgressMessage(task.capability, task.input, customProgress),
             timestamp: startTime,
           });
 

@@ -1,8 +1,9 @@
-import { inject, injectable } from "inversify";
+import { inject, injectable, optional } from "inversify";
 
 import { AgentRegistry } from "../../core/agent/agent-registry.js";
 import { ExecutionContext } from "../../core/execution/execution-context.js";
 import { TYPES } from "../../di/types.js";
+import { HarnessEventBus } from "../../events/event-bus.js";
 import { createLogger } from "../../utils/logger.js";
 import {
   CapabilityExecutionRequest,
@@ -16,7 +17,10 @@ const logger = createLogger("SubAgentExecutor");
 
 @injectable()
 export class SubAgentExecutor implements CapabilityExecutor {
-  constructor(@inject(TYPES.AgentRegistry) private readonly agentRegistry: AgentRegistry) {}
+  constructor(
+    @inject(TYPES.AgentRegistry) private readonly agentRegistry: AgentRegistry,
+    @optional() @inject(TYPES.EventBus) private readonly eventBus?: HarnessEventBus,
+  ) {}
 
   async execute(
     request: CapabilityExecutionRequest,
@@ -37,6 +41,24 @@ export class SubAgentExecutor implements CapabilityExecutor {
       };
     }
 
+    this.eventBus?.emit("subagent:delegated", {
+      runId: context.runId,
+      agentId: context.agentId,
+      parentAgentId: context.agentId,
+      subAgentId: rawAgentId,
+      task,
+      timestamp: Date.now(),
+    });
+
+    this.eventBus?.emit("progressive:message", {
+      runId: context.runId,
+      agentId: context.agentId,
+      stage: "delegating",
+      capability: `agent.${rawAgentId}`,
+      message: `Consulting specialist agent '${rawAgentId}'...`,
+      timestamp: Date.now(),
+    });
+
     try {
       const agent = this.agentRegistry.get(rawAgentId);
       const startTime = Date.now();
@@ -50,6 +72,16 @@ export class SubAgentExecutor implements CapabilityExecutor {
 
       const durationMs = Date.now() - startTime;
       logger.info(`Sub-agent '${rawAgentId}' completed delegation in ${durationMs}ms`);
+
+      this.eventBus?.emit("subagent:completed", {
+        runId: context.runId,
+        agentId: context.agentId,
+        parentAgentId: context.agentId,
+        subAgentId: rawAgentId,
+        response: result.response,
+        durationMs,
+        timestamp: Date.now(),
+      });
 
       return {
         success: true,

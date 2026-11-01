@@ -19,7 +19,8 @@ export type HarnessEventType =
   | "memory:stored"
   | "hitl:approval_required"
   | "hitl:approved"
-  | "hitl:rejected";
+  | "hitl:rejected"
+  | "progressive:message";
 
 export interface BaseEventPayload {
   runId: string;
@@ -128,6 +129,13 @@ export interface HitlRejectedPayload extends BaseEventPayload {
   reason?: string;
 }
 
+export interface ProgressiveMessagePayload extends BaseEventPayload {
+  stage: "planning" | "action" | "delegating" | "processing";
+  message: string;
+  capability?: string;
+  taskId?: string;
+}
+
 export interface HarnessEventMap {
   "run:start": RunStartPayload;
   "run:end": RunEndPayload;
@@ -147,6 +155,7 @@ export interface HarnessEventMap {
   "hitl:approval_required": HitlApprovalRequiredPayload;
   "hitl:approved": HitlApprovedPayload;
   "hitl:rejected": HitlRejectedPayload;
+  "progressive:message": ProgressiveMessagePayload;
 }
 
 export interface HarnessEvent<T extends HarnessEventType = HarnessEventType> {

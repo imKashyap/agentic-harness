@@ -9,6 +9,7 @@ import {
   GitFork,
   Cpu,
   Clock,
+  Sparkles,
 } from 'lucide-react';
 
 export interface TimelineEvent {
@@ -70,6 +71,8 @@ export const ExecutionTimeline = ({
       case 'plan:start':
       case 'plan:generated':
         return <GitFork size={13} className='text-indigo-400' />;
+      case 'progressive:message':
+        return <Sparkles size={13} className='text-amber-300' />;
       default:
         return <Clock size={13} className='text-neutral-400' />;
     }
@@ -94,6 +97,8 @@ export const ExecutionTimeline = ({
         return 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300';
       case 'hitl:approval_required':
         return 'border-rose-500/30 bg-rose-500/10 text-rose-300';
+      case 'progressive:message':
+        return 'border-amber-400/30 bg-amber-400/10 text-amber-300';
       default:
         return 'border-neutral-700 bg-neutral-800 text-neutral-300';
     }

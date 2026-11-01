@@ -58,6 +58,12 @@ interface ChatState {
   status: 'idle' | 'running' | 'completed' | 'error';
   selectedEventData?: unknown;
   selectedEventIndex?: number | null;
+  activeProgressMessage?: {
+    stage: string;
+    message: string;
+    capability?: string;
+    timestamp: number;
+  };
   error?: string;
 }
 
@@ -75,6 +81,7 @@ const initialState: ChatState = {
   events: [],
   status: 'idle',
   selectedEventIndex: null,
+  activeProgressMessage: undefined,
 };
 
 function chatReducer(state: ChatState, action: Action): ChatState {
@@ -90,6 +97,7 @@ function chatReducer(state: ChatState, action: Action): ChatState {
       return {
         ...state,
         status: 'running',
+        activeProgressMessage: undefined,
         error: undefined,
         messages: [
           ...state.messages,
@@ -111,6 +119,25 @@ function chatReducer(state: ChatState, action: Action): ChatState {
       const { event, data } = action;
 
       switch (event) {
+        case 'progressive:message': {
+          const newTimelineEvent: TimelineEvent = {
+            type: 'progressive:message',
+            label: data?.message || 'Progress update',
+            timestamp: data?.timestamp || Date.now(),
+            data,
+          };
+          return {
+            ...state,
+            activeProgressMessage: {
+              stage: data?.stage || 'action',
+              message: data?.message || 'Processing...',
+              capability: data?.capability,
+              timestamp: data?.timestamp || Date.now(),
+            },
+            events: [...state.events, newTimelineEvent],
+          };
+        }
+
         case 'token:delta': {
           const deltaText = data?.delta || '';
           if (!deltaText) return state;
@@ -126,6 +153,7 @@ function chatReducer(state: ChatState, action: Action): ChatState {
           });
           return {
             ...state,
+            activeProgressMessage: undefined,
             messages: updatedMessages,
           };
         }
@@ -368,6 +396,7 @@ function chatReducer(state: ChatState, action: Action): ChatState {
           return {
             ...state,
             status: 'completed',
+            activeProgressMessage: undefined,
             events: [...state.events, newTimelineEvent],
           };
         }
@@ -384,6 +413,7 @@ function chatReducer(state: ChatState, action: Action): ChatState {
             ...state,
             status: 'error',
             error: data?.error || 'Unknown error occurred during agent run',
+            activeProgressMessage: undefined,
             events: [...state.events, newTimelineEvent],
           };
         }
@@ -409,6 +439,7 @@ function chatReducer(state: ChatState, action: Action): ChatState {
       return {
         ...state,
         status: 'idle',
+        activeProgressMessage: undefined,
       };
 
     case 'SET_ERROR':
@@ -804,12 +835,35 @@ export const Chat = () => {
                   >
                     {msg.role === 'assistant' ? (
                       msg.content ? (
-                        <MarkdownRenderer content={msg.content} />
+                        <>
+                          <MarkdownRenderer content={msg.content} />
+                          {state.status === 'running' &&
+                            idx === state.messages.length - 1 &&
+                            state.activeProgressMessage && (
+                              <div className='mt-2.5 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-500/10 border border-amber-500/25 text-amber-300 shadow-sm animate-pulse'>
+                                <span className='relative flex h-2 w-2'>
+                                  <span className='animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75'></span>
+                                  <span className='relative inline-flex rounded-full h-2 w-2 bg-amber-500'></span>
+                                </span>
+                                <span>{state.activeProgressMessage.message}</span>
+                              </div>
+                            )}
+                        </>
                       ) : state.status === 'running' && idx === state.messages.length - 1 ? (
-                        <span className='inline-flex items-center gap-1 text-neutral-400 italic'>
-                          <span className='w-1.5 h-1.5 rounded-full bg-indigo-400 animate-ping' />
-                          Thinking and streaming response...
-                        </span>
+                        state.activeProgressMessage ? (
+                          <span className='inline-flex items-center gap-2 text-amber-300 font-medium'>
+                            <span className='relative flex h-2 w-2'>
+                              <span className='animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75'></span>
+                              <span className='relative inline-flex rounded-full h-2 w-2 bg-amber-500'></span>
+                            </span>
+                            <span>{state.activeProgressMessage.message}</span>
+                          </span>
+                        ) : (
+                          <span className='inline-flex items-center gap-1 text-neutral-400 italic'>
+                            <span className='w-1.5 h-1.5 rounded-full bg-indigo-400 animate-ping' />
+                            Thinking and streaming response...
+                          </span>
+                        )
                       ) : (
                         ''
                       )
