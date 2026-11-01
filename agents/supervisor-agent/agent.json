@@ -1,13 +1,13 @@
 {
-  "id": "default-agent",
-  "name": "Default Agent",
-  "description": "My first agent",
+  "id": "supervisor-agent",
+  "name": "Supervisor Agent",
+  "description": "Coordinates user requests and delegates work to specialized agents.",
   "model": {
     "provider": "openrouter",
     "model": "gemma-4-31b-it"
   },
   "prompt": {
-    "id": "default-agent",
+    "id": "supervisor-agent",
     "version": "v1"
   },
   "skills": ["skill.greeting"],

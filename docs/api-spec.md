@@ -123,7 +123,7 @@ Lists all available agents registered in the harness.
   ```json
   {
     "success": true,
-    "agents": [{ "id": "default-agent" }, { "id": "researcher" }]
+    "agents": [{ "id": "supervisor-agent" }, { "id": "researcher" }]
   }
   ```
 
@@ -134,7 +134,7 @@ Lists all available agents registered in the harness.
 Executes an agent run for the specified agent. Supports both **synchronous JSON responses** and **live Server-Sent Events (SSE)**.
 
 - **Path Parameters**:
-  - `id` (_string_, required): Unique agent ID (e.g. `default-agent`, `researcher`).
+  - `id` (_string_, required): Unique agent ID (e.g. `supervisor-agent`, `researcher`).
 
 - **Request Headers**:
   - `Content-Type: application/json`
@@ -166,7 +166,7 @@ Executes an agent run for the specified agent. Supports both **synchronous JSON 
     "response": "The calculation (150 * 24) + 400 equals 4,000.",
     "sessionId": "session-user-101",
     "messages": [
-      { "role": "system", "content": "You are Default Agent..." },
+      { "role": "system", "content": "You are Supervisor Agent..." },
       { "role": "user", "content": "Calculate (150 * 24) + 400 and summarize." },
       {
         "role": "assistant",
@@ -192,25 +192,25 @@ Executes an agent run for the specified agent. Supports both **synchronous JSON 
   Connection: keep-alive
 
   event: run:start
-  data: {"runId":"c4e672","agentId":"default-agent","timestamp":1724784000100,"input":"Calculate (150 * 24) + 400"}
+  data: {"runId":"c4e672","agentId":"supervisor-agent","timestamp":1724784000100,"input":"Calculate (150 * 24) + 400"}
 
   event: token:delta
-  data: {"runId":"c4e672","agentId":"default-agent","timestamp":1724784000150,"delta":"Let"}
+  data: {"runId":"c4e672","agentId":"supervisor-agent","timestamp":1724784000150,"delta":"Let"}
 
   event: token:delta
-  data: {"runId":"c4e672","agentId":"default-agent","timestamp":1724784000160,"delta":" me calculate"}
+  data: {"runId":"c4e672","agentId":"supervisor-agent","timestamp":1724784000160,"delta":" me calculate"}
 
   event: task:start
-  data: {"runId":"c4e672","agentId":"default-agent","timestamp":1724784000200,"taskId":"call-1","capability":"tool.calculator","input":{"expression":"(150 * 24) + 400"}}
+  data: {"runId":"c4e672","agentId":"supervisor-agent","timestamp":1724784000200,"taskId":"call-1","capability":"tool.calculator","input":{"expression":"(150 * 24) + 400"}}
 
   event: task:complete
-  data: {"runId":"c4e672","agentId":"default-agent","timestamp":1724784000205,"taskId":"call-1","capability":"tool.calculator","output":{"expression":"(150 * 24) + 400","result":4000},"durationMs":5}
+  data: {"runId":"c4e672","agentId":"supervisor-agent","timestamp":1724784000205,"taskId":"call-1","capability":"tool.calculator","output":{"expression":"(150 * 24) + 400","result":4000},"durationMs":5}
 
   event: token:delta
-  data: {"runId":"c4e672","agentId":"default-agent","timestamp":1724784000250,"delta":"The calculation equals 4,000."}
+  data: {"runId":"c4e672","agentId":"supervisor-agent","timestamp":1724784000250,"delta":"The calculation equals 4,000."}
 
   event: run:end
-  data: {"runId":"c4e672","agentId":"default-agent","timestamp":1724784000300,"response":"The calculation equals 4,000.","durationMs":200,"totalMessages":5}
+  data: {"runId":"c4e672","agentId":"supervisor-agent","timestamp":1724784000300,"response":"The calculation equals 4,000.","durationMs":200,"totalMessages":5}
   ```
 
 ---
@@ -258,7 +258,7 @@ Lists stored multi-turn conversation sessions.
     "sessions": [
       {
         "id": "session-user-101",
-        "agentId": "default-agent",
+        "agentId": "supervisor-agent",
         "messageCount": 6,
         "createdAt": 1724783000000,
         "updatedAt": 1724784000000
@@ -279,7 +279,7 @@ Retrieves full message history and metadata for a specific session.
     "success": true,
     "session": {
       "id": "session-user-101",
-      "agentId": "default-agent",
+      "agentId": "supervisor-agent",
       "createdAt": 1724783000000,
       "updatedAt": 1724784000000,
       "messages": [
@@ -362,7 +362,7 @@ Explicitly stores a knowledge fact into the vector embedding store.
   ```json
   {
     "fact": "Production database is PostgreSQL 16 on Google Cloud SQL",
-    "agentId": "default-agent",
+    "agentId": "supervisor-agent",
     "tags": ["infrastructure", "database", "gcp"]
   }
   ```
@@ -374,7 +374,7 @@ Explicitly stores a knowledge fact into the vector embedding store.
     "memory": {
       "id": "8b7543f1-112d-4c4c-b871-e17394432311",
       "content": "Production database is PostgreSQL 16 on Google Cloud SQL",
-      "agentId": "default-agent",
+      "agentId": "supervisor-agent",
       "tags": ["infrastructure", "database", "gcp"],
       "createdAt": 1724784000000
     }
@@ -392,7 +392,7 @@ Performs cosine similarity semantic search over stored memories.
   ```json
   {
     "query": "Which database version do we use in production?",
-    "agentId": "default-agent",
+    "agentId": "supervisor-agent",
     "limit": 3
   }
   ```
@@ -407,7 +407,7 @@ Performs cosine similarity semantic search over stored memories.
       {
         "content": "Production database is PostgreSQL 16 on Google Cloud SQL",
         "score": 0.88,
-        "agentId": "default-agent",
+        "agentId": "supervisor-agent",
         "tags": ["infrastructure", "database", "gcp"],
         "createdAt": 1724784000000
       }
@@ -431,7 +431,7 @@ Lists all pending approval checkpoints waiting for human resolution.
       {
         "id": "106b3a99-5d7e-4aff-8db2-fc27ca567c17",
         "runId": "run-98124",
-        "agentId": "default-agent",
+        "agentId": "supervisor-agent",
         "taskId": "call-deploy-prod",
         "capability": "tool.deploy",
         "input": { "environment": "production", "version": "v2.4.0" },
@@ -455,7 +455,7 @@ Retrieves details of a specific checkpoint by ID.
     "checkpoint": {
       "id": "106b3a99-5d7e-4aff-8db2-fc27ca567c17",
       "runId": "run-98124",
-      "agentId": "default-agent",
+      "agentId": "supervisor-agent",
       "taskId": "call-deploy-prod",
       "capability": "tool.deploy",
       "input": { "environment": "production", "version": "v2.4.0" },
@@ -534,7 +534,7 @@ Rejects a suspended task run or checkpoint token.
 ```typescript
 // 1. Synchronous JSON run
 async function runAgent(message: string, sessionId?: string) {
-  const response = await fetch("http://localhost:3000/v1/agents/default-agent/runs", {
+  const response = await fetch("http://localhost:3000/v1/agents/supervisor-agent/runs", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ message, sessionId }),
@@ -544,7 +544,7 @@ async function runAgent(message: string, sessionId?: string) {
 
 // 2. Real-time SSE streaming run
 async function streamAgent(message: string) {
-  const response = await fetch("http://localhost:3000/v1/agents/default-agent/runs", {
+  const response = await fetch("http://localhost:3000/v1/agents/supervisor-agent/runs", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -584,7 +584,7 @@ import httpx
 import json
 
 def stream_agent(message: str):
-    url = "http://localhost:3000/v1/agents/default-agent/runs"
+    url = "http://localhost:3000/v1/agents/supervisor-agent/runs"
     headers = {
         "Content-Type": "application/json",
         "Accept": "text/event-stream"

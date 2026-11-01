@@ -162,7 +162,7 @@ Maintain short-term context across conversation turns by reusing the same `sessi
 
 ```bash
 # Turn 1: introduce user information
-curl -X POST http://localhost:3000/v1/agents/default-agent/runs \
+curl -X POST http://localhost:3000/v1/agents/supervisor-agent/runs \
   -H "Content-Type: application/json" \
   -d '{
     "sessionId": "session-alice-101",
@@ -170,7 +170,7 @@ curl -X POST http://localhost:3000/v1/agents/default-agent/runs \
   }'
 
 # Turn 2: the agent remembers the previous turn (same sessionId)
-curl -X POST http://localhost:3000/v1/agents/default-agent/runs \
+curl -X POST http://localhost:3000/v1/agents/supervisor-agent/runs \
   -H "Content-Type: application/json" \
   -d '{
     "sessionId": "session-alice-101",
@@ -191,7 +191,7 @@ curl -X DELETE http://localhost:3000/v1/sessions/session-alice-101
 Stream tokens and orchestration events in real time over Server-Sent Events (SSE):
 
 ```bash
-curl -N -X POST http://localhost:3000/v1/agents/default-agent/runs \
+curl -N -X POST http://localhost:3000/v1/agents/supervisor-agent/runs \
   -H "Content-Type: application/json" \
   -H "Accept: text/event-stream" \
   -d '{
@@ -211,7 +211,7 @@ Store and recall facts semantically over HTTP:
 curl -X POST http://localhost:3000/v1/memory \
   -H "Content-Type: application/json" \
   -d '{
-    "agentId": "default-agent",
+    "agentId": "supervisor-agent",
     "tags": ["infrastructure", "db"],
     "fact": "Production database was upgraded to PostgreSQL 16.2"
   }'
@@ -220,7 +220,7 @@ curl -X POST http://localhost:3000/v1/memory \
 curl -X POST http://localhost:3000/v1/memory/search \
   -H "Content-Type: application/json" \
   -d '{
-    "agentId": "default-agent",
+    "agentId": "supervisor-agent",
     "limit": 3,
     "query": "What database version are we running?"
   }'
@@ -269,7 +269,7 @@ curl -X POST http://localhost:3000/v1/runs/<run-id-or-checkpoint>/reject \
 ### SSE Streaming Example via `curl`:
 
 ```bash
-curl -X POST http://localhost:3000/v1/agents/default-agent/runs \
+curl -X POST http://localhost:3000/v1/agents/supervisor-agent/runs \
   -H "Content-Type: application/json" \
   -H "Accept: text/event-stream" \
   -d '{

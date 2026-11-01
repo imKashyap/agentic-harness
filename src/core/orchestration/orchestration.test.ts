@@ -205,7 +205,7 @@ describe("ExecutionEngine with CalculatorTool", () => {
       },
     ];
 
-    const results = await engine.execute(tasks, { runId: "test-run", agentId: "default-agent" });
+    const results = await engine.execute(tasks, { runId: "test-run", agentId: "supervisor-agent" });
 
     assert.strictEqual(results.length, 2);
     assert.strictEqual(results[0]?.taskId, "calc-1");

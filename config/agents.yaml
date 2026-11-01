@@ -11,7 +11,7 @@ agents:
     modelId: openrouter/gemma
     inferenceProfileId: summarizer_default
 
-  - agentId: default-agent
+  - agentId: supervisor-agent
     modelId: openrouter/gemma
     inferenceProfileId: planner_default
 

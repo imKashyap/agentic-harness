@@ -9,8 +9,8 @@ GET {{baseUrl}}/v1/agents
 ### 3. List Available Capabilities (Tools, Skills, and Sub-Agents)
 GET {{baseUrl}}/v1/capabilities
 
-### 4. Default Agent Run (Direct Prompt)
-POST {{baseUrl}}/v1/agents/default-agent/runs
+### 4. Supervisor Agent Run (Direct Prompt)
+POST {{baseUrl}}/v1/agents/supervisor-agent/runs
 Content-Type: application/json
 
 {
@@ -18,7 +18,7 @@ Content-Type: application/json
 }
 
 ### 5. Tool Calling Scenario (Calculator Tool)
-POST {{baseUrl}}/v1/agents/default-agent/runs
+POST {{baseUrl}}/v1/agents/supervisor-agent/runs
 Content-Type: application/json
 
 {
@@ -26,7 +26,7 @@ Content-Type: application/json
 }
 
 ### 6. Agent Delegation Scenario (Sub-Agent Execution)
-POST {{baseUrl}}/v1/agents/default-agent/runs
+POST {{baseUrl}}/v1/agents/supervisor-agent/runs
 Content-Type: application/json
 
 {
@@ -34,7 +34,7 @@ Content-Type: application/json
 }
 
 ### 7. Multi-Turn Conversational Session (Turn 1: Ingest Context)
-POST {{baseUrl}}/v1/agents/default-agent/runs
+POST {{baseUrl}}/v1/agents/supervisor-agent/runs
 Content-Type: application/json
 
 {
@@ -43,7 +43,7 @@ Content-Type: application/json
 }
 
 ### 8. Multi-Turn Conversational Session (Turn 2: Context Continuity)
-POST {{baseUrl}}/v1/agents/default-agent/runs
+POST {{baseUrl}}/v1/agents/supervisor-agent/runs
 Content-Type: application/json
 
 {
@@ -55,7 +55,7 @@ Content-Type: application/json
 GET {{baseUrl}}/v1/sessions
 
 ### 10. List Sessions for an Agent
-GET {{baseUrl}}/v1/sessions?agentId=default-agent
+GET {{baseUrl}}/v1/sessions?agentId=supervisor-agent
 
 ### 11. Inspect Session Message History
 GET {{baseUrl}}/v1/sessions/debug-session-101
@@ -65,7 +65,7 @@ POST {{baseUrl}}/v1/memory
 Content-Type: application/json
 
 {
-  "agentId": "default-agent",
+  "agentId": "supervisor-agent",
   "fact": "The production database cluster was upgraded to PostgreSQL 16.2 in us-west-2.",
   "tags": ["database", "infrastructure", "production"]
 }
@@ -75,13 +75,13 @@ POST {{baseUrl}}/v1/memory/search
 Content-Type: application/json
 
 {
-  "agentId": "default-agent",
+  "agentId": "supervisor-agent",
   "query": "What version of PostgreSQL are we running in prod?",
   "limit": 3
 }
 
 ### 14. Agent Run with Semantic Memory Recall Injected
-POST {{baseUrl}}/v1/agents/default-agent/runs
+POST {{baseUrl}}/v1/agents/supervisor-agent/runs
 Content-Type: application/json
 
 {
@@ -90,7 +90,7 @@ Content-Type: application/json
 }
 
 ### 15. Real-Time Token Streaming over Server-Sent Events (SSE)
-POST {{baseUrl}}/v1/agents/default-agent/runs
+POST {{baseUrl}}/v1/agents/supervisor-agent/runs
 Content-Type: application/json
 Accept: text/event-stream
 
