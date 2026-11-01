@@ -3,7 +3,13 @@
 ### 1. Health Check & Live Metrics
 GET {{baseUrl}}/health
 
-### 2. Default Agent Run (Direct Prompt)
+### 2. List Registered Agents
+GET {{baseUrl}}/v1/agents
+
+### 3. List Available Capabilities (Tools, Skills, and Sub-Agents)
+GET {{baseUrl}}/v1/capabilities
+
+### 4. Default Agent Run (Direct Prompt)
 POST {{baseUrl}}/v1/agents/default-agent/runs
 Content-Type: application/json
 
@@ -11,7 +17,7 @@ Content-Type: application/json
   "message": "Hello! Introduce yourself and list what skills and tools you have access to."
 }
 
-### 3. Tool Calling Scenario (Calculator Tool)
+### 5. Tool Calling Scenario (Calculator Tool)
 POST {{baseUrl}}/v1/agents/default-agent/runs
 Content-Type: application/json
 
@@ -19,7 +25,7 @@ Content-Type: application/json
   "message": "Calculate (128 * 45) + 360 using the calculator tool."
 }
 
-### 4. Agent Delegation Scenario (Sub-Agent Execution)
+### 6. Agent Delegation Scenario (Sub-Agent Execution)
 POST {{baseUrl}}/v1/agents/default-agent/runs
 Content-Type: application/json
 
@@ -27,7 +33,7 @@ Content-Type: application/json
   "message": "Please delegate research on modern agent architectures to the researcher agent and summarize the findings."
 }
 
-### 5. Multi-Turn Conversational Session (Turn 1: Ingest Context)
+### 7. Multi-Turn Conversational Session (Turn 1: Ingest Context)
 POST {{baseUrl}}/v1/agents/default-agent/runs
 Content-Type: application/json
 
@@ -36,7 +42,7 @@ Content-Type: application/json
   "message": "My name is Alice, I am a lead engineer working with TypeScript and distributed systems."
 }
 
-### 6. Multi-Turn Conversational Session (Turn 2: Context Continuity)
+### 8. Multi-Turn Conversational Session (Turn 2: Context Continuity)
 POST {{baseUrl}}/v1/agents/default-agent/runs
 Content-Type: application/json
 
@@ -45,10 +51,16 @@ Content-Type: application/json
   "message": "What is my name and what do I specialize in?"
 }
 
-### 7. Inspect Session Message History
+### 9. List All Sessions
+GET {{baseUrl}}/v1/sessions
+
+### 10. List Sessions for an Agent
+GET {{baseUrl}}/v1/sessions?agentId=default-agent
+
+### 11. Inspect Session Message History
 GET {{baseUrl}}/v1/sessions/debug-session-101
 
-### 8. Long-Term Memory (Store Fact)
+### 12. Long-Term Memory (Store Fact)
 POST {{baseUrl}}/v1/memory
 Content-Type: application/json
 
@@ -58,7 +70,7 @@ Content-Type: application/json
   "tags": ["database", "infrastructure", "production"]
 }
 
-### 9. Long-Term Memory (Semantic Search)
+### 13. Long-Term Memory (Semantic Search)
 POST {{baseUrl}}/v1/memory/search
 Content-Type: application/json
 
@@ -68,7 +80,7 @@ Content-Type: application/json
   "limit": 3
 }
 
-### 10. Agent Run with Semantic Memory Recall Injected
+### 14. Agent Run with Semantic Memory Recall Injected
 POST {{baseUrl}}/v1/agents/default-agent/runs
 Content-Type: application/json
 
@@ -77,7 +89,7 @@ Content-Type: application/json
   "enableLongTermMemory": true
 }
 
-### 11. Real-Time Token Streaming over Server-Sent Events (SSE)
+### 15. Real-Time Token Streaming over Server-Sent Events (SSE)
 POST {{baseUrl}}/v1/agents/default-agent/runs
 Content-Type: application/json
 Accept: text/event-stream
@@ -87,8 +99,30 @@ Accept: text/event-stream
   "stream": true
 }
 
-### 12. List Pending Human-in-the-Loop (HITL) Approvals
+### 16. List Pending Human-in-the-Loop (HITL) Approvals
 GET {{baseUrl}}/v1/approvals
 
-### 13. Delete Session
+### 17. Inspect an Approval Checkpoint
+# Replace the checkpoint ID with an ID returned from the pending approvals request.
+GET {{baseUrl}}/v1/checkpoints/replace-with-checkpoint-id
+
+### 18. Approve a Pending Run or Checkpoint
+# Replace the ID with a pending checkpoint ID or its run ID. Use either approve or reject.
+POST {{baseUrl}}/v1/runs/replace-with-run-or-checkpoint-id/approve
+Content-Type: application/json
+
+{
+  "reason": "Reviewed and approved."
+}
+
+### 19. Reject a Pending Run or Checkpoint
+# Replace the ID with a pending checkpoint ID or its run ID. Use either approve or reject.
+POST {{baseUrl}}/v1/runs/replace-with-run-or-checkpoint-id/reject
+Content-Type: application/json
+
+{
+  "reason": "Rejected after review."
+}
+
+### 20. Delete Session
 DELETE {{baseUrl}}/v1/sessions/debug-session-101
