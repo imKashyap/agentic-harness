@@ -9,17 +9,9 @@ const logger = createLogger("PostgresConfigStore");
 
 @injectable()
 export class PostgresConfigStore {
-  // In-memory fallback/cache state for environments running with MockPostgresStore
-  private readonly memoryProviders = new Map<string, ProviderConfig>();
-  private readonly memoryModels = new Map<string, ModelDefinition>();
-  private readonly memoryProfiles = new Map<string, InferenceProfile>();
-  private readonly memoryAgentConfigs = new Map<string, AgentModelConfig>();
-  private currentVersion = 1;
-
   constructor(@inject(TYPES.RelationalDb) private readonly db: RelationalDb) {}
 
   async saveProvider(provider: ProviderConfig): Promise<void> {
-    this.memoryProviders.set(provider.id, provider);
     await this.db.execute(
       `INSERT INTO llm_providers (id, name, provider_type, base_url, api_key_env, timeout_ms, max_retries, default_headers, default_generation, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
@@ -75,7 +67,7 @@ export class PostgresConfigStore {
         defaultGeneration: r.default_generation,
       };
     }
-    return this.memoryProviders.get(id) ?? null;
+    return null;
   }
 
   async listProviders(): Promise<ProviderConfig[]> {
@@ -104,11 +96,10 @@ export class PostgresConfigStore {
         defaultGeneration: r.default_generation,
       }));
     }
-    return Array.from(this.memoryProviders.values());
+    return [];
   }
 
   async saveModel(model: ModelDefinition): Promise<void> {
-    this.memoryModels.set(model.id, model);
     await this.db.execute(
       `INSERT INTO llm_models (id, name, provider_id, model_id, context_length, capabilities, default_generation, metadata, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
@@ -160,7 +151,7 @@ export class PostgresConfigStore {
         metadata: r.metadata,
       };
     }
-    return this.memoryModels.get(id) ?? null;
+    return null;
   }
 
   async listModels(): Promise<ModelDefinition[]> {
@@ -187,11 +178,10 @@ export class PostgresConfigStore {
         metadata: r.metadata,
       }));
     }
-    return Array.from(this.memoryModels.values());
+    return [];
   }
 
   async saveProfile(profile: InferenceProfile): Promise<void> {
-    this.memoryProfiles.set(profile.id, profile);
     await this.db.execute(
       `INSERT INTO llm_inference_profiles (id, name, parameters, provider_overrides, model_overrides, updated_at)
        VALUES ($1, $2, $3, $4, $5, NOW())
@@ -231,7 +221,7 @@ export class PostgresConfigStore {
         modelOverrides: r.model_overrides,
       };
     }
-    return this.memoryProfiles.get(id) ?? null;
+    return null;
   }
 
   async listProfiles(): Promise<InferenceProfile[]> {
@@ -252,11 +242,10 @@ export class PostgresConfigStore {
         modelOverrides: r.model_overrides,
       }));
     }
-    return Array.from(this.memoryProfiles.values());
+    return [];
   }
 
   async saveAgentConfig(config: AgentModelConfig): Promise<void> {
-    this.memoryAgentConfigs.set(config.agentId, config);
     await this.db.execute(
       `INSERT INTO agent_llm_configs (agent_id, model_id, inference_profile_id, overrides, updated_at)
        VALUES ($1, $2, $3, $4, NOW())
@@ -292,7 +281,7 @@ export class PostgresConfigStore {
         overrides: r.overrides,
       };
     }
-    return this.memoryAgentConfigs.get(agentId) ?? null;
+    return null;
   }
 
   async listAgentConfigs(): Promise<AgentModelConfig[]> {
@@ -311,27 +300,38 @@ export class PostgresConfigStore {
         overrides: r.overrides,
       }));
     }
-    return Array.from(this.memoryAgentConfigs.values());
+    return [];
   }
 
   async incrementVersion(description?: string): Promise<number> {
-    this.currentVersion++;
-    await this.db.execute(
-      `INSERT INTO llm_config_versions (version, updated_at, description)
-       VALUES ($1, NOW(), $2)`,
-      [this.currentVersion, description ?? `Config update to v${this.currentVersion}`],
+    const [row] = await this.db.query<{ version: number | string }>(
+      `WITH next_version AS (
+         UPDATE llm_config_version_state
+         SET version = version + 1
+         WHERE singleton = TRUE
+         RETURNING version
+       ), history AS (
+         INSERT INTO llm_config_versions (version, updated_at, description)
+         SELECT version, NOW(), $1 FROM next_version
+         RETURNING version
+       )
+       SELECT version FROM history`,
+      [description ?? "LLM configuration updated"],
     );
-    logger.info(`Incremented config version to ${this.currentVersion}`);
-    return this.currentVersion;
+    if (!row) {
+      throw new Error("Failed to increment the PostgreSQL LLM config version");
+    }
+    logger.info(`Incremented config version to ${row.version}`);
+    return Number(row.version);
   }
 
   async getLatestVersion(): Promise<number> {
     const rows = await this.db.query<{ version: number | string }>(
-      `SELECT MAX(version) as version FROM llm_config_versions`,
+      `SELECT version FROM llm_config_version_state WHERE singleton = TRUE`,
     );
-    if (rows.length > 0 && rows[0]?.version) {
-      return Number(rows[0].version);
+    if (!rows[0]) {
+      throw new Error("PostgreSQL LLM config version state has not been initialized");
     }
-    return this.currentVersion;
+    return Number(rows[0].version);
   }
 }

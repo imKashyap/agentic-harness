@@ -3,6 +3,7 @@ import "reflect-metadata";
 import assert from "node:assert";
 import { describe, it } from "node:test";
 
+import { MockRelationalDb, withMockPersistence } from "../../tests/support/mock-stores.js";
 import { CalculatorTool } from "../capabilities/tools/examples/calculator-tool.js";
 import { AgentNotFoundError } from "../errors/orchestration-errors.js";
 import { PromptProvider } from "../prompts/prompt-provider.js";
@@ -21,12 +22,26 @@ const mockPromptProvider: PromptProvider = {
 };
 
 describe("AgentHarness Facade (Server-Ready API)", () => {
+  it("fails initialization when PostgreSQL is unavailable", async () => {
+    const relationalDb = new MockRelationalDb();
+    relationalDb.initialize = async () => {
+      throw new Error("PostgreSQL unavailable");
+    };
+
+    await assert.rejects(
+      () => AgentHarness.init(withMockPersistence({ relationalDb })),
+      /PostgreSQL unavailable/,
+    );
+  });
+
   it("initializes successfully with custom tools and mock prompt provider", async () => {
-    const harness = await AgentHarness.init({
-      tools: [new CalculatorTool()],
-      planGenerator: new StaticPlanGenerator(),
-      promptProvider: mockPromptProvider,
-    });
+    const harness = await AgentHarness.init(
+      withMockPersistence({
+        tools: [new CalculatorTool()],
+        planGenerator: new StaticPlanGenerator(),
+        promptProvider: mockPromptProvider,
+      }),
+    );
 
     assert.ok(harness.capabilityRegistry);
     assert.ok(harness.agentRegistry);
@@ -35,11 +50,13 @@ describe("AgentHarness Facade (Server-Ready API)", () => {
   });
 
   it("allows dynamic registration of tools, skills, and agents", async () => {
-    const harness = await AgentHarness.init({
-      tools: [],
-      planGenerator: new StaticPlanGenerator(),
-      promptProvider: mockPromptProvider,
-    });
+    const harness = await AgentHarness.init(
+      withMockPersistence({
+        tools: [],
+        planGenerator: new StaticPlanGenerator(),
+        promptProvider: mockPromptProvider,
+      }),
+    );
 
     // Register tool
     harness.registerTool(new CalculatorTool());
@@ -80,11 +97,13 @@ describe("AgentHarness Facade (Server-Ready API)", () => {
   });
 
   it("runs an agent through the harness facade and handles unknown agents", async () => {
-    const harness = await AgentHarness.init({
-      tools: [new CalculatorTool()],
-      planGenerator: new StaticPlanGenerator(),
-      promptProvider: mockPromptProvider,
-    });
+    const harness = await AgentHarness.init(
+      withMockPersistence({
+        tools: [new CalculatorTool()],
+        planGenerator: new StaticPlanGenerator(),
+        promptProvider: mockPromptProvider,
+      }),
+    );
 
     const mockConfig: AgentConfig = {
       id: "echo-agent",

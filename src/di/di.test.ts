@@ -3,12 +3,12 @@ import "reflect-metadata";
 import assert from "node:assert";
 import { describe, it } from "node:test";
 
+import { MockSessionStore, withMockPersistence } from "../../tests/support/mock-stores.js";
 import { CapabilityRegistry } from "../capabilities/capability-registry.js";
 import { AgentRegistry } from "../core/agent/agent-registry.js";
 import { AgentHarness } from "../core/harness.js";
 import { Orchestrator } from "../core/orchestration/orchestrator.js";
 import { HarnessEventBus } from "../events/event-bus.js";
-import { InMemorySessionStore } from "../memory/session/in-memory-session-store.js";
 import { PromptProvider } from "../prompts/prompt-provider.js";
 import { createHarnessContainer } from "./container.js";
 import { TYPES } from "./types.js";
@@ -48,25 +48,29 @@ describe("Inversify DI Container & Singleton Scoping", () => {
 
   it("injects custom service instances into the container", () => {
     const customEventBus = new HarnessEventBus();
-    const customSessionStore = new InMemorySessionStore();
+    const customSessionStore = new MockSessionStore();
 
-    const container = createHarnessContainer({
-      eventBus: customEventBus,
-      sessionStore: customSessionStore,
-      promptProvider: mockPromptProvider,
-    });
+    const container = createHarnessContainer(
+      withMockPersistence({
+        eventBus: customEventBus,
+        sessionStore: customSessionStore,
+        promptProvider: mockPromptProvider,
+      }),
+    );
 
     const resolvedBus = container.get<HarnessEventBus>(TYPES.EventBus);
     assert.strictEqual(resolvedBus, customEventBus);
 
-    const resolvedSessionStore = container.get<InMemorySessionStore>(TYPES.SessionStore);
+    const resolvedSessionStore = container.get<MockSessionStore>(TYPES.SessionStore);
     assert.strictEqual(resolvedSessionStore, customSessionStore);
   });
 
   it("initializes AgentHarness via Inversify container and exposes container property", async () => {
-    const harness = await AgentHarness.init({
-      promptProvider: mockPromptProvider,
-    });
+    const harness = await AgentHarness.init(
+      withMockPersistence({
+        promptProvider: mockPromptProvider,
+      }),
+    );
 
     assert.ok(harness.container);
     assert.strictEqual(

@@ -3,13 +3,13 @@ import "reflect-metadata";
 import assert from "node:assert";
 import { describe, it } from "node:test";
 
+import { MockLongTermMemoryStore, withMockPersistence } from "../../tests/support/mock-stores.js";
 import { AgentConfig } from "../core/agent/agent-config.js";
 import { AgentHarness } from "../core/harness.js";
 import { StaticPlanGenerator } from "../core/orchestration/static-plan-generator.js";
 import { PromptProvider } from "../prompts/prompt-provider.js";
 import { cosineSimilarity } from "./long-term/cosine-similarity.js";
 import { LocalHashEmbeddingProvider } from "./long-term/embeddings.js";
-import { InMemoryLongTermStore } from "./long-term/in-memory-long-term-store.js";
 import { MemoryManager } from "./long-term/memory-manager.js";
 import { RememberFactTool, SearchMemoryTool } from "./tools/memory-tools.js";
 
@@ -50,9 +50,9 @@ describe("Cosine Similarity & Local Embeddings", () => {
   });
 });
 
-describe("InMemoryLongTermStore & MemoryManager", () => {
+describe("MockLongTermMemoryStore & MemoryManager", () => {
   it("saves facts and retrieves the most relevant memories by semantic query", async () => {
-    const manager = new MemoryManager(new InMemoryLongTermStore());
+    const manager = new MemoryManager(new MockLongTermMemoryStore());
 
     await manager.remember("User preferred database is PostgreSQL 16 on AWS Aurora", {
       agentId: "db-agent",
@@ -83,7 +83,7 @@ describe("InMemoryLongTermStore & MemoryManager", () => {
 });
 
 describe("Memory Tools (RememberFactTool & SearchMemoryTool)", () => {
-  const manager = new MemoryManager(new InMemoryLongTermStore());
+  const manager = new MemoryManager(new MockLongTermMemoryStore());
   const rememberTool = new RememberFactTool(manager);
   const searchTool = new SearchMemoryTool(manager);
   const context = { runId: "test-run", agentId: "test-agent" };
@@ -116,11 +116,13 @@ describe("Memory Tools (RememberFactTool & SearchMemoryTool)", () => {
 
 describe("AgentHarness with Memory Subsystems", () => {
   it("allows storing and recalling memories directly through harness facade", async () => {
-    const harness = await AgentHarness.init({
-      tools: [],
-      planGenerator: new StaticPlanGenerator(),
-      promptProvider: mockPromptProvider,
-    });
+    const harness = await AgentHarness.init(
+      withMockPersistence({
+        tools: [],
+        planGenerator: new StaticPlanGenerator(),
+        promptProvider: mockPromptProvider,
+      }),
+    );
 
     const config: AgentConfig = {
       id: "memory-agent",

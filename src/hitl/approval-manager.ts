@@ -3,7 +3,6 @@ import { inject, injectable, optional } from "inversify";
 import { TYPES } from "../di/types.js";
 import { HarnessEventBus } from "../events/event-bus.js";
 import { createLogger } from "../utils/logger.js";
-import { InMemoryCheckpointStore } from "./checkpoint-store.js";
 import type { ApprovalDecision, Checkpoint, CheckpointStore } from "./types.js";
 
 const logger = createLogger("ApprovalManager");
@@ -20,10 +19,10 @@ export class ApprovalManager {
   private readonly store: CheckpointStore;
 
   constructor(
-    @inject(TYPES.CheckpointStore) store?: CheckpointStore,
+    @inject(TYPES.CheckpointStore) store: CheckpointStore,
     @optional() @inject(TYPES.EventBus) private readonly eventBus?: HarnessEventBus,
   ) {
-    this.store = store ?? new InMemoryCheckpointStore();
+    this.store = store;
   }
 
   async requestApproval(

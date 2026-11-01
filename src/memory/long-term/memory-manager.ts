@@ -3,7 +3,6 @@ import { inject, injectable } from "inversify";
 import { TYPES } from "../../di/types.js";
 import { createLogger } from "../../utils/logger.js";
 import { MemoryEntry, MemorySearchOptions, MemorySearchResult } from "../types.js";
-import { InMemoryLongTermStore } from "./in-memory-long-term-store.js";
 import type { LongTermMemoryStore } from "./memory-store.js";
 
 const logger = createLogger("MemoryManager");
@@ -12,7 +11,7 @@ const logger = createLogger("MemoryManager");
 export class MemoryManager {
   constructor(
     @inject(TYPES.LongTermMemoryStore)
-    private readonly store: LongTermMemoryStore = new InMemoryLongTermStore(),
+    private readonly store: LongTermMemoryStore,
   ) {}
 
   async remember(

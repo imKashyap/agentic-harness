@@ -3,6 +3,7 @@ import "reflect-metadata";
 import assert from "node:assert";
 import { describe, it } from "node:test";
 
+import { withMockPersistence } from "../../tests/support/mock-stores.js";
 import { AgentConfig } from "../core/agent/agent-config.js";
 import { AgentHarness } from "../core/harness.js";
 import { StaticPlanGenerator } from "../core/orchestration/static-plan-generator.js";
@@ -45,11 +46,13 @@ describe("MockLLM Streaming", () => {
 
 describe("AgentHarness runAgentStream()", () => {
   it("streams real-time tokens and lifecycle events for an agent turn", async () => {
-    const harness = await AgentHarness.init({
-      tools: [],
-      planGenerator: new StaticPlanGenerator(),
-      promptProvider: mockPromptProvider,
-    });
+    const harness = await AgentHarness.init(
+      withMockPersistence({
+        tools: [],
+        planGenerator: new StaticPlanGenerator(),
+        promptProvider: mockPromptProvider,
+      }),
+    );
 
     const config: AgentConfig = {
       id: "stream-agent",

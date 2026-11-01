@@ -4,10 +4,11 @@ import assert from "node:assert";
 import { describe, it } from "node:test";
 
 import { ContextManager } from "../../src/context/context-manager.js";
-import { InMemoryLongTermStore, MemoryManager } from "../../src/context/memory.js";
+import { MemoryManager } from "../../src/context/memory.js";
 import { PromptBuilder } from "../../src/context/prompt-builder.js";
 import { TokenManager } from "../../src/context/token-manager.js";
 import { Message } from "../../src/llm/types.js";
+import { MockLongTermMemoryStore } from "../support/mock-stores.js";
 
 describe("Context & Token Management", () => {
   it("TokenManager estimates tokens accurately", () => {
@@ -39,7 +40,7 @@ describe("Context & Token Management", () => {
   });
 
   it("PromptBuilder injects semantic memories", async () => {
-    const store = new InMemoryLongTermStore();
+    const store = new MockLongTermMemoryStore();
     const memory = new MemoryManager(store);
     await memory.remember("User prefers TypeScript and dark mode", { agentId: "agent-1" });
 

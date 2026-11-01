@@ -8,6 +8,7 @@ import { AgentConfig } from "../../src/core/agent/agent-config.js";
 import { AgentHarness } from "../../src/core/harness.js";
 import { StaticPlanGenerator } from "../../src/core/orchestration/static-plan-generator.js";
 import { PromptProvider } from "../../src/prompts/prompt-provider.js";
+import { withMockPersistence } from "../support/mock-stores.js";
 
 const mockPromptProvider: PromptProvider = {
   async getPrompt(req) {
@@ -20,11 +21,13 @@ const mockPromptProvider: PromptProvider = {
 };
 
 async function createTestHarness(): Promise<AgentHarness> {
-  const harness = await AgentHarness.init({
-    tools: [],
-    planGenerator: new StaticPlanGenerator(),
-    promptProvider: mockPromptProvider,
-  });
+  const harness = await AgentHarness.init(
+    withMockPersistence({
+      tools: [],
+      planGenerator: new StaticPlanGenerator(),
+      promptProvider: mockPromptProvider,
+    }),
+  );
 
   const config: AgentConfig = {
     id: "api-agent",

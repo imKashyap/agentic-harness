@@ -25,7 +25,7 @@ agentic-harness/
 │   │   ├── agent/                 # Agent, AgentRunner, AgentFactory, AgentRegistry, AgentConfig
 │   │   ├── orchestration/         # DAG DependencyGraph, ExecutionEngine, Scheduler, Planner
 │   │   ├── execution/             # ExecutionContext, Task, TaskStatus, ExecutionResult
-│   │   ├── state/                 # ConversationState, RunState, StateStore (InMemory, File)
+│   │   ├── state/                 # ConversationState, RunState, StateStore
 │   │   └── harness.ts             # Server-ready AgentHarness facade container
 │   │
 │   ├── context/
@@ -112,7 +112,9 @@ All dependencies are wired through the Inversify IoC container in `src/di/contai
 - `TYPES.EventBus` $\rightarrow$ `HarnessEventBus`
 - `TYPES.TracingService` $\rightarrow$ `TracingService`
 - `TYPES.MetricsService` $\rightarrow$ `MetricsService`
-- `TYPES.StateStore` $\rightarrow$ `InMemoryStateStore` / `FileStateStore`
+- `TYPES.StateStore`, `TYPES.SessionStore`, `TYPES.CheckpointStore`, and `TYPES.LongTermMemoryStore` $\rightarrow$ PostgreSQL-backed stores
+- `TYPES.KeyValueStore` and `TYPES.MessageBus` $\rightarrow$ Redis-backed adapters
+- Harness startup initializes PostgreSQL and Redis and fails if a configured service is unavailable. Tests inject mocks for external services.
 - `TYPES.ContextManager` $\rightarrow$ `ContextManager`
 - `TYPES.TokenManager` $\rightarrow$ `TokenManager`
 - `TYPES.InputGuard`, `TYPES.ToolGuard`, `TYPES.OutputGuard`, `TYPES.PolicyEngine`

@@ -6,8 +6,6 @@ process.env["OPENAI_API_KEY"] = process.env["OPENAI_API_KEY"] || "test-openai-ke
 process.env["ANTHROPIC_API_KEY"] = process.env["ANTHROPIC_API_KEY"] || "test-anthropic-key";
 
 import { ExecutionContext } from "../../src/core/execution/execution-context.js";
-import { InMemoryMessageBus } from "../../src/infrastructure/messaging/message-bus.js";
-import { MockPostgresStore } from "../../src/infrastructure/postgres/postgres-store.js";
 import { AgentModelConfigRegistry } from "../../src/llm/configuration/agent-config-registry.js";
 import {
   CONFIG_INVALIDATION_CHANNEL,
@@ -29,6 +27,7 @@ import {
   mapInferenceParameters,
 } from "../../src/llm/configuration/validation.js";
 import { LLMFactory } from "../../src/llm/llm-factory.js";
+import { MockMessageBus, MockRelationalDb } from "../support/mock-stores.js";
 
 function setupRegistries() {
   const providerRegistry = new ProviderRegistry();
@@ -41,9 +40,9 @@ function setupRegistries() {
     profileRegistry,
     agentConfigRegistry,
   );
-  const db = new MockPostgresStore();
+  const db = new MockRelationalDb();
   const configStore = new PostgresConfigStore(db);
-  const messageBus = new InMemoryMessageBus();
+  const messageBus = new MockMessageBus();
   const configCache = new ConfigCache(resolver, configStore, agentConfigRegistry, messageBus);
 
   // Setup providers
@@ -372,6 +371,7 @@ describe("Dynamic LLM Configuration & Inference Management", () => {
 
   it("9. invalidates worker in-memory cache via Redis Pub/Sub events", async () => {
     const { configCache, messageBus, agentConfigRegistry } = setupRegistries();
+    await configCache.initialize();
 
     agentConfigRegistry.register({
       agentId: "cached-agent-1",

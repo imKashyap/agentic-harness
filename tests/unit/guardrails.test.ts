@@ -3,11 +3,11 @@ import "reflect-metadata";
 import assert from "node:assert";
 import { describe, it } from "node:test";
 
-import { InMemoryStateStore } from "../../src/core/state/state-store.js";
 import { InputGuard } from "../../src/guardrails/input-guard.js";
 import { OutputGuard } from "../../src/guardrails/output-guard.js";
 import { PolicyEngine } from "../../src/guardrails/policy-engine.js";
 import { ToolGuard } from "../../src/guardrails/tool-guard.js";
+import { MockStateStore } from "../support/mock-stores.js";
 
 describe("Guardrails & Policy Engine", () => {
   it("InputGuard validates clean input and blocks dangerous injection patterns", () => {
@@ -57,7 +57,7 @@ describe("Guardrails & Policy Engine", () => {
   });
 
   it("PolicyEngine handles non-blocking approval resolution", async () => {
-    const stateStore = new InMemoryStateStore();
+    const stateStore = new MockStateStore();
     const engine = new PolicyEngine(
       new InputGuard(),
       new ToolGuard(),

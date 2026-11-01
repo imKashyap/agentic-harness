@@ -4,6 +4,7 @@ import assert from "node:assert";
 import { promises as fs } from "node:fs";
 import { describe, it } from "node:test";
 
+import { MockSessionStore, withMockPersistence } from "../../tests/support/mock-stores.js";
 import { CalculatorTool } from "../capabilities/tools/examples/calculator-tool.js";
 import { AgentConfig } from "../core/agent/agent-config.js";
 import { AgentHarness } from "../core/harness.js";
@@ -12,7 +13,6 @@ import { Message } from "../llm/types.js";
 import { PromptProvider } from "../prompts/prompt-provider.js";
 import { ContextCompactor } from "./session/context-compactor.js";
 import { FileSessionStore } from "./session/file-session-store.js";
-import { InMemorySessionStore } from "./session/in-memory-session-store.js";
 import { Session } from "./types.js";
 
 const mockPromptProvider: PromptProvider = {
@@ -25,9 +25,9 @@ const mockPromptProvider: PromptProvider = {
   },
 };
 
-describe("InMemorySessionStore", () => {
+describe("MockSessionStore", () => {
   it("saves, retrieves, lists, and deletes sessions", async () => {
-    const store = new InMemorySessionStore();
+    const store = new MockSessionStore();
 
     const session1: Session = {
       id: "sess-1",
@@ -136,13 +136,15 @@ describe("ContextCompactor", () => {
 
 describe("Multi-Turn Session Memory in AgentHarness", () => {
   it("maintains conversational history across multi-turn runs", async () => {
-    const sessionStore = new InMemorySessionStore();
-    const harness = await AgentHarness.init({
-      tools: [new CalculatorTool()],
-      planGenerator: new StaticPlanGenerator(),
-      promptProvider: mockPromptProvider,
-      sessionStore,
-    });
+    const sessionStore = new MockSessionStore();
+    const harness = await AgentHarness.init(
+      withMockPersistence({
+        tools: [new CalculatorTool()],
+        planGenerator: new StaticPlanGenerator(),
+        promptProvider: mockPromptProvider,
+        sessionStore,
+      }),
+    );
 
     const config: AgentConfig = {
       id: "conversational-agent",

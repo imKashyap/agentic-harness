@@ -40,7 +40,7 @@ Agentic Harness provides the infrastructure required to move from prototype LLM 
   - OpenRouter SSE streaming adapter with live markdown chunking.
 - 🛡️ **Human-in-the-Loop (HITL) Approval Gates**:
   - Sensitive tools trigger execution pauses with unique approval tokens.
-  - Non-blocking deferred Promise resolution with disk-backed checkpointing (`InMemoryCheckpointStore` & `FileCheckpointStore`).
+  - Non-blocking deferred Promise resolution with PostgreSQL-backed checkpointing.
 - 🌐 **Hono HTTP & Server-Sent Events (SSE) Server**:
   - Fast, standards-compliant API server exposing endpoints for agent execution, streaming runs, session CRUD, and HITL decision approvals.
 - 💉 **InversifyJS Dependency Injection & Singleton Scoping**:
@@ -58,7 +58,7 @@ Agentic Harness
  │    ├── CapabilityRegistry (Tools, Skills, Sub-Agents)
  │    ├── AgentRegistry & AgentFactory
  │    ├── Orchestrator (Adaptive Planner + DAG Execution Engine)
- │    ├── SessionStore (InMemory / FileStorage) & ContextCompactor
+ │    ├── PostgreSQL SessionStore & ContextCompactor
  │    ├── MemoryManager (Embeddings + Vector Cosine Store)
  │    ├── ApprovalManager (HITL Checkpoints & Resolution)
  │    └── HarnessEventBus (Pub/Sub Lifecycle & Stream Runners)
@@ -73,6 +73,7 @@ For full architectural diagrams and flowcharts, see [docs/architecture.md](./doc
 
 - **Node.js**: `>= 20.0.0`
 - **npm**: `>= 10.0.0`
+- **PostgreSQL 16** and **Redis 7** (or Docker Compose)
 - **OpenRouter API Key** (optional for mock tests, required for live LLM execution): [openrouter.ai](https://openrouter.ai)
 
 ---
@@ -101,6 +102,15 @@ Set your configuration in `.env`:
 # OpenRouter API Key for live models (e.g. google/gemini-2.0-flash-001)
 OPENROUTER_API_KEY=your_openrouter_api_key_here
 
+# PostgreSQL and Redis (required at runtime; schema is initialized on startup)
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_DB=agentic_harness
+POSTGRES_USER=harness
+POSTGRES_PASSWORD=harness_password
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
 # Server Configuration
 PORT=3000
 NODE_ENV=development
@@ -109,6 +119,10 @@ NODE_ENV=development
 LOG_LEVEL=info
 LOG_FORMAT=pretty
 ```
+
+Start the local persistence services with `docker compose up -d postgres redis`. The harness
+fails startup if PostgreSQL or Redis is unavailable; tests use mocked stores and need neither
+service.
 
 ---
 

@@ -25,6 +25,7 @@ export class ConfigCache {
   private readonly lastKnownValid = new Map<string, ResolvedModelConfig>();
   private localVersion = 1;
   private unsubscribe?: () => void;
+  private initializationPromise?: Promise<void>;
 
   constructor(
     @inject(ModelConfigResolver) private readonly resolver: ModelConfigResolver,
@@ -35,26 +36,24 @@ export class ConfigCache {
     @optional() @inject(TYPES.MessageBus) private readonly messageBus?: MessageBus,
   ) {
     this.localVersion = resolver.getConfigVersion();
-    this.initSubscription();
   }
 
-  private initSubscription(): void {
-    if (this.messageBus) {
-      this.messageBus
-        .subscribe(CONFIG_INVALIDATION_CHANNEL, (message: unknown) => {
-          const event = message as ConfigInvalidationEvent;
-          logger.info(
-            `Received config invalidation event (agentId: ${event.agentId ?? "ALL"}, version: ${event.version})`,
-          );
-          this.handleInvalidation(event);
-        })
-        .then((unsub) => {
-          this.unsubscribe = unsub;
-        })
-        .catch((err) => {
-          logger.warn(`Failed to subscribe to config invalidation channel: ${String(err)}`);
-        });
+  public initialize(): Promise<void> {
+    if (!this.messageBus) {
+      return Promise.resolve();
     }
+    this.initializationPromise ??= this.messageBus
+      .subscribe(CONFIG_INVALIDATION_CHANNEL, (message: unknown) => {
+        const event = message as ConfigInvalidationEvent;
+        logger.info(
+          `Received config invalidation event (agentId: ${event.agentId ?? "ALL"}, version: ${event.version})`,
+        );
+        this.handleInvalidation(event);
+      })
+      .then((unsubscribe) => {
+        this.unsubscribe = unsubscribe;
+      });
+    return this.initializationPromise;
   }
 
   public dispose(): void {

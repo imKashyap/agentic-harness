@@ -9,7 +9,7 @@ import { CapabilityResolver } from "../capabilities/resolution/capability-resolv
 import { ToolCapabilityExecutor } from "../capabilities/tools/tool-capability-executor.js";
 import { ToolExecutor } from "../capabilities/tools/tool-executor.js";
 import { ContextManager } from "../context/context-manager.js";
-import { InMemoryLongTermStore, MemoryManager } from "../context/memory.js";
+import { MemoryManager } from "../context/memory.js";
 import { PromptBuilder } from "../context/prompt-builder.js";
 import { TokenManager } from "../context/token-manager.js";
 import { AgentConfigLoader } from "../core/agent/agent-config-loader.js";
@@ -24,16 +24,20 @@ import { PlanValidator } from "../core/orchestration/plan-validator.js";
 import { Planner } from "../core/orchestration/planner.js";
 import { Scheduler } from "../core/orchestration/scheduler.js";
 import { StaticPlanGenerator } from "../core/orchestration/static-plan-generator.js";
-import { InMemoryStateStore } from "../core/state/state-store.js";
 import { InputGuard } from "../guardrails/input-guard.js";
 import { OutputGuard } from "../guardrails/output-guard.js";
 import { PolicyEngine } from "../guardrails/policy-engine.js";
 import { ToolGuard } from "../guardrails/tool-guard.js";
 import { ApprovalManager } from "../hitl/approval-manager.js";
-import { InMemoryCheckpointStore } from "../hitl/checkpoint-store.js";
-import { InMemoryMessageBus } from "../infrastructure/messaging/message-bus.js";
-import { MockPostgresStore } from "../infrastructure/postgres/postgres-store.js";
-import { InMemoryRedisStore } from "../infrastructure/redis/redis-store.js";
+import { RedisMessageBus } from "../infrastructure/messaging/message-bus.js";
+import {
+  PostgresCheckpointStore,
+  PostgresLongTermMemoryStore,
+  PostgresSessionStore,
+  PostgresStateStore,
+} from "../infrastructure/postgres/postgres-persistence.js";
+import { PostgresStore } from "../infrastructure/postgres/postgres-store.js";
+import { RedisStore } from "../infrastructure/redis/redis-store.js";
 import { AgentModelConfigRegistry } from "../llm/configuration/agent-config-registry.js";
 import { ConfigCache } from "../llm/configuration/config-cache.js";
 import { InferenceProfileRegistry } from "../llm/configuration/inference-profile-registry.js";
@@ -45,7 +49,6 @@ import { LLMFactory } from "../llm/llm-factory.js";
 import { ModelCatalog } from "../llm/model-catalog.js";
 import { ModelRouter } from "../llm/model-router.js";
 import { ContextCompactor } from "../memory/session/context-compactor.js";
-import { InMemorySessionStore } from "../memory/session/in-memory-session-store.js";
 import { HarnessEventBus } from "../observability/events.js";
 import { MetricsService } from "../observability/metrics.js";
 import { TracingService } from "../observability/tracing.js";
@@ -94,10 +97,24 @@ export function createHarnessContainer(options: HarnessOptions = {}): Container 
   // ─────────────────────────────────────
   // State & Infrastructure
   // ─────────────────────────────────────
-  container.bind(TYPES.StateStore).to(InMemoryStateStore).inSingletonScope();
-  container.bind(TYPES.KeyValueStore).to(InMemoryRedisStore).inSingletonScope();
-  container.bind(TYPES.RelationalDb).to(MockPostgresStore).inSingletonScope();
-  container.bind(TYPES.MessageBus).to(InMemoryMessageBus).inSingletonScope();
+  if (options.keyValueStore) {
+    container.bind(TYPES.KeyValueStore).toConstantValue(options.keyValueStore);
+  } else {
+    container.bind(TYPES.KeyValueStore).to(RedisStore).inSingletonScope();
+  }
+
+  if (options.relationalDb) {
+    container.bind(TYPES.RelationalDb).toConstantValue(options.relationalDb);
+  } else {
+    container.bind(TYPES.RelationalDb).to(PostgresStore).inSingletonScope();
+  }
+  container.bind(TYPES.StateStore).to(PostgresStateStore).inSingletonScope();
+
+  if (options.messageBus) {
+    container.bind(TYPES.MessageBus).toConstantValue(options.messageBus);
+  } else {
+    container.bind(TYPES.MessageBus).to(RedisMessageBus).inSingletonScope();
+  }
 
   // ─────────────────────────────────────
   // Registries & Resolvers
@@ -116,7 +133,7 @@ export function createHarnessContainer(options: HarnessOptions = {}): Container 
   if (options.sessionStore) {
     container.bind(TYPES.SessionStore).toConstantValue(options.sessionStore);
   } else {
-    container.bind(TYPES.SessionStore).to(InMemorySessionStore).inSingletonScope();
+    container.bind(TYPES.SessionStore).to(PostgresSessionStore).inSingletonScope();
   }
 
   if (options.contextCompactor) {
@@ -128,7 +145,7 @@ export function createHarnessContainer(options: HarnessOptions = {}): Container 
   if (options.longTermMemoryStore) {
     container.bind(TYPES.LongTermMemoryStore).toConstantValue(options.longTermMemoryStore);
   } else {
-    container.bind(TYPES.LongTermMemoryStore).to(InMemoryLongTermStore).inSingletonScope();
+    container.bind(TYPES.LongTermMemoryStore).to(PostgresLongTermMemoryStore).inSingletonScope();
   }
   container.bind(TYPES.MemoryManager).to(MemoryManager).inSingletonScope();
 
@@ -146,7 +163,7 @@ export function createHarnessContainer(options: HarnessOptions = {}): Container 
   if (options.checkpointStore) {
     container.bind(TYPES.CheckpointStore).toConstantValue(options.checkpointStore);
   } else {
-    container.bind(TYPES.CheckpointStore).to(InMemoryCheckpointStore).inSingletonScope();
+    container.bind(TYPES.CheckpointStore).to(PostgresCheckpointStore).inSingletonScope();
   }
 
   if (options.approvalManager) {

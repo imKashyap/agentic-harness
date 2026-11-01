@@ -23,6 +23,7 @@ import type { Checkpoint, CheckpointStore } from "../hitl/types.js";
 import type { MessageBus } from "../infrastructure/messaging/message-bus.js";
 import type { RelationalDb } from "../infrastructure/postgres/postgres-store.js";
 import type { KeyValueStore } from "../infrastructure/redis/redis-store.js";
+import { ConfigCache } from "../llm/configuration/config-cache.js";
 import { MemoryManager } from "../memory/long-term/memory-manager.js";
 import type { LongTermMemoryStore } from "../memory/long-term/memory-store.js";
 import { ContextCompactor } from "../memory/session/context-compactor.js";
@@ -93,6 +94,11 @@ export class AgentHarness {
     const container = createHarnessContainer(options);
     container.bind(TYPES.AgentHarness).to(AgentHarness).inSingletonScope();
 
+    const relationalDb = container.get<RelationalDb>(TYPES.RelationalDb);
+    await relationalDb.initialize?.();
+    await container.get<KeyValueStore>(TYPES.KeyValueStore).initialize?.();
+    await container.get<MessageBus>(TYPES.MessageBus).initialize?.();
+
     const capabilityRegistry = container.get<CapabilityRegistry>(TYPES.CapabilityRegistry);
     const memoryManager = container.get<MemoryManager>(TYPES.MemoryManager);
     const configLoader = container.get<AgentConfigLoader>(TYPES.AgentConfigLoader);
@@ -119,6 +125,7 @@ export class AgentHarness {
 
     const harness = container.get<AgentHarness>(TYPES.AgentHarness);
     harness.container = container;
+    await container.get<ConfigCache>(TYPES.ConfigCache).initialize();
 
     // Load the built-in agent configs when present.
     await registerAgentConfigIfPresent(

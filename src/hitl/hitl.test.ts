@@ -5,6 +5,7 @@ import { promises as fs } from "node:fs";
 import { describe, it } from "node:test";
 
 import { createApp } from "../../apps/api/server.js";
+import { MockCheckpointStore, withMockPersistence } from "../../tests/support/mock-stores.js";
 import { SubAgentExecutor } from "../capabilities/agents/sub-agent-executor.js";
 import { CapabilityRegistry } from "../capabilities/capability-registry.js";
 import { CapabilityDispatcher } from "../capabilities/dispatch/capability-dispatcher.js";
@@ -25,7 +26,7 @@ import { StaticPlanGenerator } from "../core/orchestration/static-plan-generator
 import { LLM, LLMRequest, LLMResponse } from "../llm/types.js";
 import { PromptProvider } from "../prompts/prompt-provider.js";
 import { ApprovalManager } from "./approval-manager.js";
-import { FileCheckpointStore, InMemoryCheckpointStore } from "./checkpoint-store.js";
+import { FileCheckpointStore } from "./checkpoint-store.js";
 
 const mockPromptProvider: PromptProvider = {
   async getPrompt(req) {
@@ -72,9 +73,9 @@ class SensitiveDatabaseTool implements Tool {
   }
 }
 
-describe("CheckpointStore", () => {
-  it("saves, retrieves, updates and deletes in InMemoryCheckpointStore", async () => {
-    const store = new InMemoryCheckpointStore();
+describe("MockCheckpointStore", () => {
+  it("saves, retrieves, updates and deletes checkpoints", async () => {
+    const store = new MockCheckpointStore();
     const cp = {
       id: "token-1",
       runId: "run-100",
@@ -133,7 +134,7 @@ describe("CheckpointStore", () => {
 
 describe("ApprovalManager", () => {
   it("resolves deferred approval decision when approved", async () => {
-    const manager = new ApprovalManager();
+    const manager = new ApprovalManager(new MockCheckpointStore());
 
     const decisionPromise = manager.requestApproval(
       "run-hitl-1",
@@ -167,7 +168,7 @@ describe("Agent & Orchestrator with HITL Approval Gate", () => {
     const tool = new SensitiveDatabaseTool();
     registry.register(tool);
 
-    const store = new InMemoryCheckpointStore();
+    const store = new MockCheckpointStore();
     const approvalManager = new ApprovalManager(store);
 
     const planner = new Planner(new StaticPlanGenerator(), registry);
@@ -243,7 +244,7 @@ describe("Agent & Orchestrator with HITL Approval Gate", () => {
     const tool = new SensitiveDatabaseTool();
     registry.register(tool);
 
-    const store = new InMemoryCheckpointStore();
+    const store = new MockCheckpointStore();
     const approvalManager = new ApprovalManager(store);
 
     const planner = new Planner(new StaticPlanGenerator(), registry);
@@ -308,11 +309,13 @@ describe("Agent & Orchestrator with HITL Approval Gate", () => {
 
 describe("Hono Server Approval REST API", () => {
   it("lists pending approvals and approves/rejects via HTTP", async () => {
-    const harness = await AgentHarness.init({
-      tools: [],
-      planGenerator: new StaticPlanGenerator(),
-      promptProvider: mockPromptProvider,
-    });
+    const harness = await AgentHarness.init(
+      withMockPersistence({
+        tools: [],
+        planGenerator: new StaticPlanGenerator(),
+        promptProvider: mockPromptProvider,
+      }),
+    );
 
     const app = createApp(harness);
 

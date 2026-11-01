@@ -3,71 +3,7 @@ import * as path from "node:path";
 
 import { injectable, unmanaged } from "inversify";
 
-import { createLogger } from "../utils/logger.js";
 import type { ApprovalStatus, Checkpoint, CheckpointStore } from "./types.js";
-
-const logger = createLogger("CheckpointStore");
-
-@injectable()
-export class InMemoryCheckpointStore implements CheckpointStore {
-  private readonly checkpoints = new Map<string, Checkpoint>();
-
-  async save(checkpoint: Checkpoint): Promise<void> {
-    logger.debug(
-      `Saving checkpoint [${checkpoint.id}] (run: ${checkpoint.runId}, task: ${checkpoint.taskId})`,
-    );
-    this.checkpoints.set(checkpoint.id, { ...checkpoint });
-  }
-
-  async get(id: string): Promise<Checkpoint | null> {
-    const cp = this.checkpoints.get(id);
-    return cp ? { ...cp } : null;
-  }
-
-  async getByRunId(runId: string): Promise<Checkpoint | null> {
-    for (const cp of this.checkpoints.values()) {
-      if (cp.runId === runId && cp.status === "pending") {
-        return { ...cp };
-      }
-    }
-    for (const cp of this.checkpoints.values()) {
-      if (cp.runId === runId) {
-        return { ...cp };
-      }
-    }
-    return null;
-  }
-
-  async updateStatus(id: string, status: ApprovalStatus, reason?: string): Promise<boolean> {
-    const cp = this.checkpoints.get(id);
-    if (!cp) {
-      return false;
-    }
-    cp.status = status;
-    cp.reason = reason;
-    cp.resolvedAt = Date.now();
-    logger.info(
-      `Updated checkpoint [${id}] status to '${status}'${reason ? ` (reason: ${reason})` : ""}`,
-    );
-    return true;
-  }
-
-  async list(status?: ApprovalStatus): Promise<Checkpoint[]> {
-    const all = Array.from(this.checkpoints.values());
-    if (!status) {
-      return all;
-    }
-    return all.filter((cp) => cp.status === status);
-  }
-
-  async delete(id: string): Promise<boolean> {
-    return this.checkpoints.delete(id);
-  }
-
-  async clear(): Promise<void> {
-    this.checkpoints.clear();
-  }
-}
 
 @injectable()
 export class FileCheckpointStore implements CheckpointStore {
