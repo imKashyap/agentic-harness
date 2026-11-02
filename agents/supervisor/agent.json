@@ -11,8 +11,14 @@
     "version": "v1"
   },
   "skills": [],
-  "tools": [],
-  "subAgents": ["agent.travel-planner"],
+  "tools": [
+    "tool.cowsay",
+    "tool.get_weather"
+  ],
+  "subAgents": [
+    "agent.travel-planner",
+    "agent.summarizer"
+  ],
   "memory": {
     "autoRecall": true,
     "search": true,

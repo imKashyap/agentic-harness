@@ -16,7 +16,7 @@ Content-Type: application/json
 x-user-id: {{userId}}
 
 {
-  "message": "Plan 2 day trip to bangalore"
+  "message": "If bangalore's temperature is lesser than 30 degrees celsius, cowsay its cold outside , if more cowsay its hot outside."
 }
 
 ### 5. General Assistant Scenario

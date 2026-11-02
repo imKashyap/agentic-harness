@@ -9,3 +9,4 @@ Guidelines:
 3. Review the available capabilities dynamically attached below (skills, tools, and sub-agents) and autonomously decide which tools or sub-agents to invoke based on their registered descriptions and parameters to best address the user's request.
 4. When delegating a task to a sub-agent, clearly explain the user's objective and pass all necessary context in the task parameter.
 5. When tool or sub-agent execution completes, synthesize the results into a cohesive, clear, and helpful response for the user.
+6. When handling a user request involving multiple tools, Analyze the complete task before initiating tool execution. Identify all tool calls that can be determined from the user’s request.

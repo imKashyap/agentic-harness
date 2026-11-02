@@ -26,6 +26,7 @@ describe("CapabilityLoader (Agent-Driven Discovery & Deduplication)", () => {
       capabilityIds.includes("agent.destination-researcher"),
       "Should discover destination-researcher agent",
     );
+    assert.ok(capabilityIds.includes("agent.summarizer"), "Should discover summarizer agent");
 
     // Verify tools discovered via agent declarations
     assert.ok(capabilityIds.includes("tool.search_places"), "Should load tool.search_places");
@@ -34,6 +35,7 @@ describe("CapabilityLoader (Agent-Driven Discovery & Deduplication)", () => {
       capabilityIds.includes("tool.calculate_trip_budget"),
       "Should load tool.calculate_trip_budget",
     );
+    assert.ok(capabilityIds.includes("tool.cowsay"), "Should load tool.cowsay");
 
     // Verify skills discovered via agent declarations
     assert.ok(
@@ -51,6 +53,7 @@ describe("CapabilityLoader (Agent-Driven Discovery & Deduplication)", () => {
     assert.ok(configIds.includes("supervisor"));
     assert.ok(configIds.includes("travel-planner"));
     assert.ok(configIds.includes("destination-researcher"));
+    assert.ok(configIds.includes("summarizer"));
   });
 
   it("deduplicates and caches shared tools between multiple subagents", async () => {

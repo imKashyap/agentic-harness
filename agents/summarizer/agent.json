@@ -1,0 +1,22 @@
+{
+  "id": "summarizer",
+  "name": "Summarizer",
+  "description": "Summarizes conversation history, discussions, decisions, and key takeaways into clear, concise, and structured highlights.",
+  "model": {
+    "provider": "openrouter",
+    "model": "gemma-4-31b-it"
+  },
+  "prompt": {
+    "id": "summarizer",
+    "version": "v1"
+  },
+  "skills": [],
+  "tools": [],
+  "subAgents": [],
+  "memory": {
+    "autoRecall": false,
+    "search": false,
+    "save": false,
+    "scope": "user"
+  }
+}

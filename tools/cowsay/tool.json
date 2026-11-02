@@ -1,0 +1,17 @@
+{
+  "id": "tool.cowsay",
+  "name": "Cowsay",
+  "description": "Renders a message in an ASCII speech bubble above a cow.",
+  "type": "tool",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "message": {
+        "type": "string",
+        "description": "The text for the cow to say."
+      }
+    },
+    "required": ["message"]
+  },
+  "progressMessage": "Making the cow say something..."
+}
