@@ -15,6 +15,8 @@ export interface Tool extends Capability {
 
   inputSchema: Record<string, unknown>;
 
+  outputSchema?: Record<string, unknown>;
+
   requiresApproval?: boolean | ((input: unknown, context: ToolContext) => boolean);
 
   progressMessage?: string | ((input: unknown) => string);

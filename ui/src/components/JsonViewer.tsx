@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { LazySyntaxHighlighter } from './LazySyntaxHighlighter';
 import { Check, Copy } from 'lucide-react';
 
 export const JsonViewer = ({ data, title }: { data: unknown; title?: string }) => {
@@ -38,9 +37,8 @@ export const JsonViewer = ({ data, title }: { data: unknown; title?: string }) =
         </button>
       </div>
       <div className='max-h-72 overflow-auto p-2'>
-        <SyntaxHighlighter
+        <LazySyntaxHighlighter
           language='json'
-          style={vscDarkPlus}
           customStyle={{
             background: 'transparent',
             margin: 0,
@@ -50,7 +48,7 @@ export const JsonViewer = ({ data, title }: { data: unknown; title?: string }) =
           }}
         >
           {jsonString}
-        </SyntaxHighlighter>
+        </LazySyntaxHighlighter>
       </div>
     </div>
   );

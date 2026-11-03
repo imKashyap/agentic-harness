@@ -1,7 +1,7 @@
 {
   "id": "tool.get_weather",
   "name": "Get Weather",
-  "description": "Retrieves live weather forecasts via Open-Meteo (open-meteo.com) and seasonal climate patterns with packing recommendations for any destination.",
+  "description": "Retrieves live weather forecasts via Open-Meteo (open-meteo.com) with packing recommendations.",
   "type": "tool",
   "inputSchema": {
     "type": "object",
@@ -9,13 +9,69 @@
       "location": {
         "type": "string",
         "description": "Destination city, region, or country (e.g. 'Kyoto', 'Tokyo', 'Paris', 'Zurich')"
-      },
-      "seasonOrMonth": {
-        "type": "string",
-        "description": "Optional travel month or season (e.g. 'November', 'Spring', 'October', 'Summer', 'current')"
       }
     },
     "required": ["location"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "location": {
+        "type": "string",
+        "description": "Resolved destination location"
+      },
+      "source": {
+        "type": "string",
+        "description": "Data source (e.g. live forecast or seasonal baseline)"
+      },
+      "coordinates": {
+        "type": "object",
+        "properties": {
+          "latitude": { "type": "number" },
+          "longitude": { "type": "number" }
+        }
+      },
+      "current": {
+        "type": "object",
+        "properties": {
+          "temperatureCelsius": { "type": "number", "description": "Current temperature in Celsius" },
+          "temperatureFahrenheit": { "type": "number", "description": "Current temperature in Fahrenheit" },
+          "humidity": { "type": "string", "description": "Current humidity percentage" },
+          "condition": { "type": "string", "description": "Current sky/weather condition" }
+        }
+      },
+      "temperature": {
+        "type": "object",
+        "properties": {
+          "currentCelsius": { "type": "number", "description": "Current temperature in Celsius" },
+          "currentFahrenheit": { "type": "number", "description": "Current temperature in Fahrenheit" },
+          "highCelsius": { "type": "number", "description": "Expected daily high in Celsius" },
+          "lowCelsius": { "type": "number", "description": "Expected daily low in Celsius" },
+          "highFahrenheit": { "type": "number", "description": "Expected daily high in Fahrenheit" },
+          "lowFahrenheit": { "type": "number", "description": "Expected daily low in Fahrenheit" }
+        }
+      },
+      "precipitation": {
+        "type": "object",
+        "properties": {
+          "maxRainProbability": { "type": "string", "description": "Maximum precipitation probability" },
+          "rainLikelihood": { "type": "string", "description": "Likelihood level of rain" }
+        }
+      },
+      "conditionSummary": {
+        "type": "string",
+        "description": "Human-readable summary of weather conditions"
+      },
+      "packingRecommendations": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "Recommended clothing and items to pack"
+      },
+      "travelTips": {
+        "type": "string",
+        "description": "Advice for travelers based on weather"
+      }
+    }
   },
   "progressMessage": "Checking weather in {location}..."
 }

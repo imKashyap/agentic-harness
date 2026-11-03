@@ -26,5 +26,31 @@
     },
     "required": ["location"]
   },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "location": { "type": "string", "description": "Resolved search location" },
+      "totalFound": { "type": "number", "description": "Total places found matching criteria" },
+      "limit": { "type": "number", "description": "Max results limit applied" },
+      "category": { "type": "string", "description": "Filter category applied" },
+      "places": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "name": { "type": "string", "description": "Place or attraction name" },
+            "category": { "type": "string", "description": "Place category (attraction, restaurant, hotel)" },
+            "rating": { "type": "number", "description": "Rating out of 5" },
+            "priceLevel": { "type": "string", "description": "Price indicator (e.g. Free, $, $$, $$$$)" },
+            "area": { "type": "string", "description": "Neighborhood or district" },
+            "summary": { "type": "string", "description": "Brief description of the place" },
+            "tags": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "description": "List of matching places and attractions"
+      }
+    }
+  },
   "progressMessage": "Searching places in {location}..."
 }

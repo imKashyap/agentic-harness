@@ -30,5 +30,73 @@
     },
     "required": ["destination", "durationDays", "travelStyle"]
   },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "destination": { "type": "string", "description": "Resolved destination" },
+      "durationDays": { "type": "number", "description": "Number of days" },
+      "travelersCount": { "type": "number", "description": "Number of travelers" },
+      "travelStyle": { "type": "string", "description": "Budget style tier" },
+      "currency": { "type": "string", "description": "Currency code (e.g. USD)" },
+      "breakdown": {
+        "type": "object",
+        "properties": {
+          "lodging": {
+            "type": "object",
+            "properties": {
+              "ratePerNight": { "type": "number" },
+              "roomsCount": { "type": "number" },
+              "total": { "type": "number" }
+            }
+          },
+          "dining": {
+            "type": "object",
+            "properties": {
+              "ratePerPersonPerDay": { "type": "number" },
+              "total": { "type": "number" }
+            }
+          },
+          "localTransit": {
+            "type": "object",
+            "properties": {
+              "ratePerPersonPerDay": { "type": "number" },
+              "total": { "type": "number" }
+            }
+          },
+          "activitiesAndSightseeing": {
+            "type": "object",
+            "properties": {
+              "ratePerPersonPerDay": { "type": "number" },
+              "total": { "type": "number" }
+            }
+          },
+          "flights": {
+            "type": "object",
+            "properties": {
+              "included": { "type": "boolean" },
+              "estimatedPerPerson": { "type": "number" },
+              "total": { "type": "number" }
+            }
+          },
+          "contingencyBuffer": {
+            "type": "object",
+            "properties": {
+              "percentage": { "type": "string" },
+              "total": { "type": "number" }
+            }
+          }
+        }
+      },
+      "summary": {
+        "type": "object",
+        "properties": {
+          "totalEstimatedCost": { "type": "number", "description": "Total estimated trip cost in USD" },
+          "costPerPerson": { "type": "number", "description": "Total cost per traveler in USD" },
+          "dailyAveragePerPerson": { "type": "number", "description": "Daily average cost per traveler in USD" }
+        }
+      },
+      "budgetingTip": { "type": "string", "description": "Custom tip for saving or allocating budget" }
+    }
+  },
   "progressMessage": "Calculating trip budget for {destination}..."
 }

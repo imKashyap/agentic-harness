@@ -6,5 +6,7 @@ export interface Capability {
   description: string;
   type: CapabilityType;
 
+  outputSchema?: Record<string, unknown>;
+
   metadata?: Record<string, unknown>;
 }

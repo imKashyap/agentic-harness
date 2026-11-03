@@ -32,9 +32,9 @@ Agentic Harness provides the infrastructure required to move from prototype LLM 
 - 🧠 **Dual-Tier Memory Subsystem**:
   - **Short-Term Sessions**: Multi-turn history management with `ContextCompactor` that preserves system prompts and atomic tool call/result pairs.
   - **Long-Term Vector Store**: Cosine similarity semantic search with lexical boosting and auto-injection of recalled context into prompts.
-- ⚡ **Adaptive Hybrid DAG Planner**:
-  - **Fast-Path (0ms overhead)**: Executes single/zero tool calls directly without extra planner LLM calls.
-  - **Dynamic DAG Path**: Uses capability-aware LLM planning to construct topological dependency graphs for multi-tool batches, running independent tasks in parallel (`Promise.all`).
+- ⚡ **Deferred-Reference DAG Orchestration**:
+  - **Batched DAG execution**: The model batches tool calls in one response **only when every argument is a literal or a `$<toolCallId>.<path>` reference** into another call in the same response; judgment-dependent calls are deferred to a later turn, after the dependency's output arrives. Dependencies are derived mechanically from the references, so dependent tasks run in topological order and independent tasks run in parallel (`Promise.all`).
+  - **Conditional tasks & failure isolation**: A reserved `_condition` key gates execution at runtime (`<`, `<=`, `>`, `>=`, `==`, `!=`); failures and skipped conditions cascade only through the tasks that depend on them — independent tasks keep executing.
 - 🌊 **Real-Time Token Streaming & Event Bus**:
   - Strongly typed `HarnessEventBus` emitting granular lifecycle events (`run:start`, `token:delta`, `thought:delta`, `tool:call`, `task:start`, `subagent:delegated`, etc.).
   - OpenRouter SSE streaming adapter with live markdown chunking.
@@ -57,7 +57,7 @@ Agentic Harness
  ├── AgentHarness (Facade Container)
  │    ├── CapabilityRegistry (Tools, Skills, Sub-Agents)
  │    ├── AgentRegistry & AgentFactory
- │    ├── Orchestrator (Adaptive Planner + DAG Execution Engine)
+ │    ├── Orchestrator (Static Planner + DAG Execution Engine)
  │    ├── PostgreSQL SessionStore & ContextCompactor
  │    ├── MemoryManager (Embeddings + Vector Cosine Store)
  │    ├── ApprovalManager (HITL Checkpoints & Resolution)

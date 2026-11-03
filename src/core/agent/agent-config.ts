@@ -39,6 +39,7 @@ export const AgentConfigSchema = z.object({
   skills: z.array(z.string()),
   tools: z.array(z.string()),
   subAgents: z.array(z.string()),
+  outputSchema: z.record(z.string(), z.unknown()).optional(),
   memory: AgentMemoryConfigSchema.optional(),
 });
 

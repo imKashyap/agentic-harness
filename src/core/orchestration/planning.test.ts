@@ -5,27 +5,10 @@ import { describe, it } from "node:test";
 
 import { TestTool } from "../../../tests/support/test-tool.js";
 import { CapabilityRegistry } from "../../capabilities/capability-registry.js";
-import { LLM, LLMRequest, LLMResponse } from "../../llm/types.js";
-import { AdaptivePlanGenerator } from "./adaptive-plan-generator.js";
-import { LLMPlanGenerator } from "./llm-plan-generator.js";
+import { DEFERRED_CALL_GUIDANCE } from "./deferred-call-guidance.js";
 import { PlanValidator } from "./plan-validator.js";
 import { Planner } from "./planner.js";
 import { StaticPlanGenerator } from "./static-plan-generator.js";
-
-class MockPlannerLLM implements LLM {
-  public lastRequest?: LLMRequest;
-  public callCount = 0;
-
-  constructor(private readonly responseContent: string) {}
-
-  async chat(request: LLMRequest): Promise<LLMResponse> {
-    this.callCount++;
-    this.lastRequest = request;
-    return {
-      content: this.responseContent,
-    };
-  }
-}
 
 describe("StaticPlanGenerator", () => {
   it("generates independent plan steps for all tool calls", async () => {
@@ -45,161 +28,106 @@ describe("StaticPlanGenerator", () => {
   });
 });
 
-describe("AdaptivePlanGenerator (Fast-Path Hybrid)", () => {
-  it("fast-path: skips LLM call entirely when toolCalls count is 0 or 1", async () => {
-    const staticGen = new StaticPlanGenerator();
-    const mockLLM = new MockPlannerLLM(JSON.stringify({ steps: [] }));
-    const llmGen = new LLMPlanGenerator(mockLLM);
-    const adaptiveGen = new AdaptivePlanGenerator(staticGen, llmGen);
+describe("StaticPlanGenerator (Deferred References)", () => {
+  const generator = new StaticPlanGenerator();
 
-    const steps = await adaptiveGen.generate({
-      toolCalls: [{ id: "single-call", name: "tool.test", arguments: { expression: "5 * 5" } }],
-    });
-
-    assert.strictEqual(steps.length, 1);
-    assert.strictEqual(steps[0]?.id, "single-call");
-    assert.deepStrictEqual(steps[0]?.dependsOn, []);
-    // Ensure LLM was NEVER invoked (0ms fast path)
-    assert.strictEqual(mockLLM.callCount, 0);
-  });
-
-  it("dynamic-path: invokes LLM planner when toolCalls count > 1", async () => {
-    const staticGen = new StaticPlanGenerator();
-    const mockLLM = new MockPlannerLLM(
-      JSON.stringify({
-        steps: [
-          { id: "c1", toolCallId: "call-1", dependsOn: [] },
-          { id: "c2", toolCallId: "call-2", dependsOn: ["c1"] },
-        ],
-      }),
-    );
-    const llmGen = new LLMPlanGenerator(mockLLM);
-    const adaptiveGen = new AdaptivePlanGenerator(staticGen, llmGen);
-
-    const steps = await adaptiveGen.generate({
+  it("derives dependencies from deferred references in arguments", async () => {
+    const steps = await generator.generate({
       toolCalls: [
-        { id: "call-1", name: "tool.test", arguments: { expression: "2 + 2" } },
-        { id: "call-2", name: "tool.test", arguments: { expression: "4 * 4" } },
+        { id: "call-1", name: "tool.test", arguments: { expression: "1 + 1" } },
+        {
+          id: "call-2",
+          name: "tool.test",
+          arguments: { expression: "$call-1.result.value" },
+        },
       ],
     });
 
-    assert.strictEqual(steps.length, 2);
-    assert.strictEqual(mockLLM.callCount, 1);
-    assert.deepStrictEqual(steps[1]?.dependsOn, ["c1"]);
-  });
-
-  it("fallback: falls back to static parallel plan when LLM planner throws", async () => {
-    const staticGen = new StaticPlanGenerator();
-    const brokenLLM = new MockPlannerLLM("invalid json");
-    const llmGen = new LLMPlanGenerator(brokenLLM);
-    const adaptiveGen = new AdaptivePlanGenerator(staticGen, llmGen, {
-      fallbackToStaticOnError: true,
-    });
-
-    const steps = await adaptiveGen.generate({
-      toolCalls: [
-        { id: "call-1", name: "tool.test", arguments: {} },
-        { id: "call-2", name: "tool.test", arguments: {} },
-      ],
-    });
-
-    assert.strictEqual(steps.length, 2);
     assert.deepStrictEqual(steps[0]?.dependsOn, []);
-    assert.deepStrictEqual(steps[1]?.dependsOn, []);
+    assert.deepStrictEqual(steps[1]?.dependsOn, ["call-1"]);
   });
-});
 
-describe("LLMPlanGenerator (Capability-Aware)", () => {
-  it("passes capability metadata and arguments to LLM prompt", async () => {
-    const registry = new CapabilityRegistry();
-    registry.register(new TestTool());
-    registry.register({
-      id: "agent.researcher",
-      name: "Researcher",
-      description: "Research agent that looks up factual information",
-      type: "agent",
-      metadata: {},
-    });
-
-    const mockResponse = JSON.stringify({
-      steps: [
-        { id: "step-1", toolCallId: "call-research", dependsOn: [] },
-        { id: "step-2", toolCallId: "call-calc", dependsOn: ["step-1"] },
-      ],
-    });
-
-    const mockLLM = new MockPlannerLLM(mockResponse);
-    const generator = new LLMPlanGenerator(mockLLM, registry);
-
+  it("derives dependencies and canonicalizes refs when model uses call_0 with provider tool IDs", async () => {
     const steps = await generator.generate({
       toolCalls: [
         {
-          id: "call-research",
-          name: "agent.researcher",
-          arguments: { task: "Find earth diameter" },
+          id: "chatcmpl-tool-upstream123",
+          name: "tool.get_weather",
+          arguments: { location: "Bangalore" },
         },
-        { id: "call-calc", name: "tool.test", arguments: { expression: "12742 * 3.14159" } },
+        {
+          id: "chatcmpl-tool-8ec40bbf0906a039",
+          name: "tool.cowsay",
+          arguments: { message: "$call_0.temperature.currentCelsius" },
+        },
       ],
     });
 
-    assert.strictEqual(steps.length, 2);
-    assert.strictEqual(steps[0]?.id, "step-1");
     assert.deepStrictEqual(steps[0]?.dependsOn, []);
-    assert.strictEqual(steps[1]?.id, "step-2");
-    assert.deepStrictEqual(steps[1]?.dependsOn, ["step-1"]);
-
-    // Verify capability awareness in the prompt sent to LLM
-    const userPrompt = mockLLM.lastRequest?.messages.find((m) => m.role === "user")?.content ?? "";
-    assert.match(userPrompt, /agent\.researcher/);
-    assert.match(userPrompt, /tool\.test/);
-    assert.match(userPrompt, /Research agent that looks up factual information/);
+    assert.deepStrictEqual(steps[1]?.dependsOn, ["chatcmpl-tool-upstream123"]);
+    assert.deepStrictEqual(steps[1]?.toolCall.arguments, {
+      message: "$chatcmpl-tool-upstream123.temperature.currentCelsius",
+    });
   });
 
-  it("handles markdown code fence JSON responses", async () => {
-    const registry = new CapabilityRegistry();
-    registry.register(new TestTool());
-
-    const fencedResponse =
-      "```json\n" +
-      JSON.stringify({
-        steps: [{ id: "call-1", toolCallId: "call-1", dependsOn: [] }],
-      }) +
-      "\n```";
-
-    const mockLLM = new MockPlannerLLM(fencedResponse);
-    const generator = new LLMPlanGenerator(mockLLM, registry);
-
+  it("derives dependencies from refs inside _condition objects", async () => {
     const steps = await generator.generate({
-      toolCalls: [{ id: "call-1", name: "tool.test", arguments: { expression: "10 * 2" } }],
+      toolCalls: [
+        { id: "call-1", name: "tool.test", arguments: { expression: "1 + 1" } },
+        {
+          id: "call-2",
+          name: "tool.test",
+          arguments: {
+            message: "cold outside",
+            _condition: { left: "$call-1.result.value", op: "<", right: 30 },
+          },
+        },
+      ],
     });
 
-    assert.strictEqual(steps.length, 1);
-    assert.strictEqual(steps[0]?.id, "call-1");
+    assert.deepStrictEqual(steps[1]?.dependsOn, ["call-1"]);
   });
 
-  it("throws when LLM returns invalid JSON or references unknown toolCallId", async () => {
-    const registry = new CapabilityRegistry();
-    const generator = new LLMPlanGenerator(new MockPlannerLLM("not valid json"), registry);
+  it("ignores self-references and refs to unknown call ids", async () => {
+    const steps = await generator.generate({
+      toolCalls: [
+        { id: "call-1", name: "tool.test", arguments: { expression: "$call-1.result.value" } },
+        { id: "call-2", name: "tool.test", arguments: { expression: "$unknown-task.result" } },
+      ],
+    });
 
-    await assert.rejects(
-      () => generator.generate({ toolCalls: [{ id: "c1", name: "tool.test", arguments: {} }] }),
-      /invalid JSON/i,
-    );
+    assert.deepStrictEqual(steps[0]?.dependsOn, []);
+    assert.deepStrictEqual(steps[1]?.dependsOn, []);
+  });
 
-    const badIdGenerator = new LLMPlanGenerator(
-      new MockPlannerLLM(
-        JSON.stringify({ steps: [{ id: "s1", toolCallId: "unknown-id", dependsOn: [] }] }),
-      ),
-      registry,
-    );
+  it("deduplicates multiple refs to the same dependency", async () => {
+    const steps = await generator.generate({
+      toolCalls: [
+        { id: "call-1", name: "tool.test", arguments: { expression: "1 + 1" } },
+        {
+          id: "call-2",
+          name: "tool.test",
+          arguments: { a: "$call-1.result.value", b: "$call-1.result.other" },
+        },
+      ],
+    });
 
-    await assert.rejects(
-      () =>
-        badIdGenerator.generate({
-          toolCalls: [{ id: "c1", name: "tool.test", arguments: {} }],
-        }),
-      /unknown toolCallId/i,
-    );
+    assert.deepStrictEqual(steps[1]?.dependsOn, ["call-1"]);
+  });
+
+  it("handles refs nested in arrays and deep objects", async () => {
+    const steps = await generator.generate({
+      toolCalls: [
+        { id: "call-1", name: "tool.test", arguments: {} },
+        {
+          id: "call-2",
+          name: "tool.test",
+          arguments: { items: [{ nested: { deep: ["$call-1.result"] } }] },
+        },
+      ],
+    });
+
+    assert.deepStrictEqual(steps[1]?.dependsOn, ["call-1"]);
   });
 });
 
@@ -297,13 +225,75 @@ describe("PlanValidator (Capability-Aware)", () => {
   });
 });
 
-describe("Planner with CapabilityRegistry", () => {
-  it("enriches request and creates execution plan", async () => {
-    const registry = new CapabilityRegistry();
-    registry.register(new TestTool());
+describe("PlanValidator (Deferred References)", () => {
+  const registry = new CapabilityRegistry();
+  registry.register(new TestTool());
+  const validator = new PlanValidator(registry);
 
+  const baseTask = {
+    id: "t1",
+    type: "capability" as const,
+    capability: "tool.test",
+    input: {},
+    status: "pending" as const,
+  };
+
+  it("accepts plans where refs match declared dependsOn", () => {
+    assert.doesNotThrow(() => {
+      validator.validate({
+        id: "plan-refs-ok",
+        createdAt: Date.now(),
+        tasks: [
+          baseTask,
+          { ...baseTask, id: "t2", input: { value: "$t1.value" }, dependsOn: ["t1"] },
+        ],
+      });
+    });
+  });
+
+  it("rejects refs to unknown task ids", () => {
+    assert.throws(() => {
+      validator.validate({
+        id: "plan-refs-unknown",
+        createdAt: Date.now(),
+        tasks: [{ ...baseTask, id: "t2", input: { value: "$nope.value" }, dependsOn: [] }],
+      });
+    }, /references unknown task 'nope'/);
+  });
+
+  it("rejects refs whose target is missing from dependsOn", () => {
+    assert.throws(() => {
+      validator.validate({
+        id: "plan-refs-missing-dep",
+        createdAt: Date.now(),
+        tasks: [baseTask, { ...baseTask, id: "t2", input: { value: "$t1.value" }, dependsOn: [] }],
+      });
+    }, /does not declare it in dependsOn/);
+  });
+
+  it("rejects malformed _condition objects", () => {
+    assert.throws(() => {
+      validator.validate({
+        id: "plan-bad-condition",
+        createdAt: Date.now(),
+        tasks: [
+          baseTask,
+          {
+            ...baseTask,
+            id: "t2",
+            dependsOn: ["t1"],
+            input: { _condition: { left: "$t1.value", op: "=>", right: 3 } },
+          },
+        ],
+      });
+    }, /malformed '_condition'/);
+  });
+});
+
+describe("Planner", () => {
+  it("creates an execution plan", async () => {
     const planGenerator = new StaticPlanGenerator();
-    const planner = new Planner(planGenerator, registry);
+    const planner = new Planner(planGenerator);
 
     const plan = await planner.createPlan({
       toolCalls: [{ id: "test-1", name: "tool.test", arguments: { expression: "5 + 5" } }],
@@ -312,5 +302,59 @@ describe("Planner with CapabilityRegistry", () => {
     assert.strictEqual(plan.tasks.length, 1);
     assert.strictEqual(plan.tasks[0]?.capability, "tool.test");
     assert.strictEqual(plan.tasks[0]?.status, "pending");
+  });
+
+  it("builds a DAG from deferred refs in a single batched response", async () => {
+    const planner = new Planner(new StaticPlanGenerator());
+
+    const plan = await planner.createPlan({
+      toolCalls: [
+        { id: "call_1", name: "tool.test", arguments: { expression: "weather" } },
+        {
+          id: "call_2",
+          name: "tool.test",
+          arguments: {
+            message: "its cold outside",
+            _condition: { left: "$call_1.temperature", op: "<", right: 30 },
+          },
+        },
+        {
+          id: "call_3",
+          name: "tool.test",
+          arguments: {
+            message: "its hot outside",
+            _condition: { left: "$call_1.temperature", op: ">=", right: 30 },
+          },
+        },
+      ],
+    });
+
+    assert.strictEqual(plan.tasks.length, 3);
+    assert.deepStrictEqual(plan.tasks[0]?.dependsOn, []);
+    assert.deepStrictEqual(plan.tasks[1]?.dependsOn, ["call_1"]);
+    assert.deepStrictEqual(plan.tasks[2]?.dependsOn, ["call_1"]);
+  });
+});
+
+describe("DEFERRED_CALL_GUIDANCE (Batching Contract)", () => {
+  it("states the groundable-prefix batching rule (literals or deferred references only)", () => {
+    assert.match(
+      DEFERRED_CALL_GUIDANCE,
+      /ONLY when every argument of every call is a literal value or a deferred reference/,
+    );
+  });
+
+  it("states that judgment-dependent calls are deferred to a later turn", () => {
+    assert.match(DEFERRED_CALL_GUIDANCE, /do NOT emit that call yet/);
+    assert.match(DEFERRED_CALL_GUIDANCE, /in a later turn once those results are available/);
+  });
+
+  it("does not force-batch calls with ungroundable arguments (no 'MUST NOT be emitted in a later turn')", () => {
+    assert.doesNotMatch(DEFERRED_CALL_GUIDANCE, /MUST NOT be emitted in a later turn/);
+  });
+
+  it("documents the deferred reference syntax and the _condition operators", () => {
+    assert.match(DEFERRED_CALL_GUIDANCE, /\$<toolCallId>\.<json\.path\.into\.output>/);
+    assert.match(DEFERRED_CALL_GUIDANCE, /Supported operators: "<", "<=", ">", ">=", "==", "!="\./);
   });
 });

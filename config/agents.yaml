@@ -1,24 +1,16 @@
 agents:
-  - agentId: planner
-    modelId: openrouter/gemma
-    inferenceProfileId: planner_default
-
-  - agentId: executor
-    modelId: openrouter/gemma
-    inferenceProfileId: executor_default
-
   - agentId: summarizer
     modelId: openrouter/gemma
     inferenceProfileId: summarizer_default
 
   - agentId: supervisor
     modelId: openrouter/gemma
-    inferenceProfileId: planner_default
+    inferenceProfileId: default
 
   - agentId: travel-planner
     modelId: openrouter/gemma
-    inferenceProfileId: planner_default
+    inferenceProfileId: default
 
   - agentId: destination-researcher
     modelId: openrouter/gemma
-    inferenceProfileId: planner_default
+    inferenceProfileId: default

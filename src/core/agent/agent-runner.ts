@@ -3,12 +3,21 @@ import { CapabilityResolver } from "../../capabilities/resolution/capability-res
 import { AgentExecutionError } from "../../errors/orchestration-errors.js";
 import { HarnessEventBus } from "../../events/event-bus.js";
 import { ConfigCache } from "../../llm/configuration/config-cache.js";
-import { AgentDefinition, LLM, LLMResponse, Message, ToolDefinition } from "../../llm/types.js";
+import {
+  AgentDefinition,
+  LLM,
+  LLMResponse,
+  Message,
+  ToolCall,
+  ToolDefinition,
+} from "../../llm/types.js";
 import { MemoryManager } from "../../memory/long-term/memory-manager.js";
 import { ContextCompactor } from "../../memory/session/context-compactor.js";
 import { withTimeout } from "../../resilience/index.js";
 import { createLogger } from "../../utils/logger.js";
 import { ExecutionContext } from "../execution/execution-context.js";
+import { ExecutionResult } from "../execution/execution-result.js";
+import { DEFERRED_CALL_GUIDANCE } from "../orchestration/deferred-call-guidance.js";
 import { Orchestrator } from "../orchestration/orchestrator.js";
 import { RuntimeAgentConfig } from "./agent-config.js";
 
@@ -178,7 +187,8 @@ export class AgentRunner {
         skillsPromptSection +
         toolsPromptSection +
         subAgentsPromptSection +
-        memoryPromptSection;
+        memoryPromptSection +
+        (assignedTools.length > 0 ? DEFERRED_CALL_GUIDANCE : "");
 
       // 5. Assemble message history
       const previousHistory = (input.history ?? []).filter((m) => m.role !== "system");
@@ -210,59 +220,7 @@ export class AgentRunner {
           }, tools: ${toolDefs.length}, sub-agents: ${agentDefs.length})`,
         );
 
-        let response: LLMResponse;
-
-        // Use streaming when available on LLM adapter
-        if (typeof this.llm.chatStream === "function") {
-          let accumulatedContent = "";
-          let finalResponse: LLMResponse | undefined;
-
-          const stream = this.llm.chatStream({
-            messages,
-            tools: toolDefs,
-            agents: agentDefs,
-            model: this.config.model.model,
-            temperature: this.config.model.generation?.temperature,
-            maxTokens: this.config.model.generation?.maxTokens,
-            topP: this.config.model.generation?.topP,
-          });
-
-          for await (const chunk of stream) {
-            if (chunk.delta) {
-              accumulatedContent += chunk.delta;
-              this.eventBus?.emit("token:delta", {
-                runId: context.runId,
-                agentId: this.config.id,
-                delta: chunk.delta,
-                timestamp: Date.now(),
-              });
-            }
-            if (chunk.fullResponse) {
-              finalResponse = chunk.fullResponse;
-            }
-          }
-
-          response = finalResponse ?? { content: accumulatedContent };
-        } else {
-          response = await this.llm.chat({
-            messages,
-            tools: toolDefs,
-            agents: agentDefs,
-            model: this.config.model.model,
-            temperature: this.config.model.generation?.temperature,
-            maxTokens: this.config.model.generation?.maxTokens,
-            topP: this.config.model.generation?.topP,
-          });
-
-          if (response.content) {
-            this.eventBus?.emit("token:delta", {
-              runId: context.runId,
-              agentId: this.config.id,
-              delta: response.content,
-              timestamp: Date.now(),
-            });
-          }
-        }
+        const response = await this.callLLM(messages, toolDefs, agentDefs, context.runId);
 
         if (!response.toolCalls || response.toolCalls.length === 0) {
           logger.info(`Agent '${this.config.id}' completed run with final textual response`);
@@ -349,41 +307,7 @@ export class AgentRunner {
 
         const results = await this.orchestrator.execute(plan, context);
 
-        const resultsByTaskId = new Map(results.map((r) => [r.taskId, r]));
-
-        for (const toolCall of response.toolCalls) {
-          const result = resultsByTaskId.get(toolCall.id);
-
-          let contentStr: string;
-          if (!result) {
-            logger.warn(
-              `Task [${toolCall.id}] had no execution result (skipped due to prior error)`,
-            );
-            contentStr = JSON.stringify({
-              error: "Task was skipped or not executed due to prior failure",
-              status: "skipped",
-            });
-          } else if (result.status === "failed") {
-            logger.warn(`Task [${toolCall.id}] failed: ${result.error ?? "Unknown error"}`);
-            contentStr = JSON.stringify({
-              error: result.error ?? "Execution failed",
-              output: result.output ?? null,
-              status: "failed",
-            });
-          } else {
-            contentStr =
-              typeof result.output === "string"
-                ? result.output
-                : JSON.stringify(result.output ?? null);
-          }
-
-          messages.push({
-            role: "tool",
-            toolCallId: toolCall.id,
-            name: toolCall.name,
-            content: contentStr,
-          });
-        }
+        messages.push(...this.toToolMessages(response.toolCalls, results));
       }
 
       const errorMessage = `Exceeded maximum iterations: ${maxIterations}`;
@@ -402,32 +326,186 @@ export class AgentRunner {
     }
   }
 
+  /**
+   * Calls the LLM, preferring streaming (emitting token:delta events as chunks
+   * arrive) when the adapter supports it; falls back to a blocking chat call
+   * otherwise (emitting the full content as a single token:delta).
+   */
+  private async callLLM(
+    messages: Message[],
+    toolDefs: ToolDefinition[],
+    agentDefs: AgentDefinition[],
+    runId: string,
+  ): Promise<LLMResponse> {
+    const request = {
+      messages,
+      tools: toolDefs,
+      agents: agentDefs,
+      model: this.config.model.model,
+      temperature: this.config.model.generation?.temperature,
+      maxTokens: this.config.model.generation?.maxTokens,
+      topP: this.config.model.generation?.topP,
+    };
+
+    // Use streaming when available on LLM adapter
+    if (typeof this.llm.chatStream === "function") {
+      let accumulatedContent = "";
+      let finalResponse: LLMResponse | undefined;
+
+      const stream = this.llm.chatStream(request);
+
+      for await (const chunk of stream) {
+        if (chunk.delta) {
+          accumulatedContent += chunk.delta;
+          this.eventBus?.emit("token:delta", {
+            runId,
+            agentId: this.config.id,
+            delta: chunk.delta,
+            timestamp: Date.now(),
+          });
+        }
+        if (chunk.fullResponse) {
+          finalResponse = chunk.fullResponse;
+        }
+      }
+
+      return finalResponse ?? { content: accumulatedContent };
+    }
+
+    const response = await this.llm.chat(request);
+    if (response.content) {
+      this.eventBus?.emit("token:delta", {
+        runId,
+        agentId: this.config.id,
+        delta: response.content,
+        timestamp: Date.now(),
+      });
+    }
+    return response;
+  }
+
+  /**
+   * Converts execution results into tool-role messages for the next LLM turn.
+   * Tasks with no result (skipped due to a prior failure) and failed tasks are
+   * reported as JSON error payloads; successful outputs are passed through as-is.
+   */
+  private toToolMessages(toolCalls: ToolCall[], results: ExecutionResult[]): Message[] {
+    const resultsByTaskId = new Map(results.map((r) => [r.taskId, r]));
+
+    return toolCalls.map((toolCall) => {
+      const result = resultsByTaskId.get(toolCall.id);
+
+      let contentStr: string;
+      if (!result) {
+        logger.warn(`Task [${toolCall.id}] had no execution result (skipped due to prior error)`);
+        contentStr = JSON.stringify({
+          error: "Task was skipped or not executed due to prior failure",
+          status: "skipped",
+        });
+      } else if (result.status === "failed") {
+        logger.warn(`Task [${toolCall.id}] failed: ${result.error ?? "Unknown error"}`);
+        contentStr = JSON.stringify({
+          error: result.error ?? "Execution failed",
+          output: result.output ?? null,
+          status: "failed",
+        });
+      } else {
+        contentStr =
+          typeof result.output === "string" ? result.output : JSON.stringify(result.output ?? null);
+      }
+
+      return {
+        role: "tool" as const,
+        toolCallId: toolCall.id,
+        name: toolCall.name,
+        content: contentStr,
+      };
+    });
+  }
+
+  /**
+   * Recalls long-term memory for the current input when auto-recall is enabled,
+   * returning the formatted prompt section (empty string when disabled, on no
+   * match, or on recall failure).
+   */
+  private async recallMemorySection(
+    input: AgentRunInput,
+    context: ExecutionContext,
+  ): Promise<string> {
+    if (
+      !this.memoryManager ||
+      this.config.memory?.autoRecall !== true ||
+      input.enableLongTermMemory === false ||
+      !context.principalId
+    ) {
+      return "";
+    }
+
+    try {
+      const recalled = await this.memoryManager.recall(input.message, {
+        principalId: context.principalId,
+        scope: this.config.memory?.scope ?? "user",
+        agentId: this.config.id,
+        limit: 4,
+      });
+      const section = this.memoryManager.formatMemoryPrompt(recalled);
+      if (recalled.length > 0) {
+        logger.info(
+          `Injected ${recalled.length} long-term memory fact(s) into system prompt for agent '${this.config.id}'`,
+        );
+        this.eventBus?.emit("memory:recalled", {
+          runId: context.runId,
+          agentId: this.config.id,
+          query: input.message,
+          matchCount: recalled.length,
+          timestamp: Date.now(),
+        });
+      }
+      return section;
+    } catch (err) {
+      logger.warn(`Failed to recall long-term memory: ${String(err)}`);
+      return "";
+    }
+  }
+
   private getToolDefinitions(): ToolDefinition[] {
     return this.capabilityResolver
       .resolveToolsForAgent(this.config, this.capabilityRegistry)
-      .map((tool) => ({
-        name: tool.id,
-        description: tool.description,
-        inputSchema: tool.inputSchema,
-      }));
+      .map((tool) => {
+        const returns = this.capabilityResolver.formatOutputSchema(tool.outputSchema).trim();
+        const description = returns ? `${tool.description}\n${returns}` : tool.description;
+        return {
+          name: tool.id,
+          description,
+          inputSchema: tool.inputSchema,
+        };
+      });
   }
 
   private getAgentDefinitions(): AgentDefinition[] {
     return this.capabilityResolver
       .resolveAgentsForAgent(this.config, this.capabilityRegistry)
-      .map((agent) => ({
-        name: agent.id,
-        description: agent.description,
-        inputSchema: {
-          type: "object",
-          properties: {
-            task: {
-              type: "string",
-              description: "Task that should be delegated to this agent",
+      .map((agent) => {
+        const returns = (
+          agent.outputSchema
+            ? this.capabilityResolver.formatOutputSchema(agent.outputSchema)
+            : "\nReturns:\n  - `response` (string): Detailed answer or task resolution from this sub-agent."
+        ).trim();
+        const description = returns ? `${agent.description}\n${returns}` : agent.description;
+        return {
+          name: agent.id,
+          description,
+          inputSchema: {
+            type: "object",
+            properties: {
+              task: {
+                type: "string",
+                description: "Task that should be delegated to this agent",
+              },
             },
+            required: ["task"],
           },
-          required: ["task"],
-        },
-      }));
+        };
+      });
   }
 }

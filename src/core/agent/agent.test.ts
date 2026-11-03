@@ -4,6 +4,7 @@ import assert from "node:assert";
 import { describe, it } from "node:test";
 
 import { TestTool } from "../../../tests/support/test-tool.js";
+import { AgentCapability } from "../../capabilities/agents/agent-capability.js";
 import { SubAgentExecutor } from "../../capabilities/agents/sub-agent-executor.js";
 import { CapabilityRegistry } from "../../capabilities/capability-registry.js";
 import { CapabilityDispatcher } from "../../capabilities/dispatch/capability-dispatcher.js";
@@ -81,7 +82,7 @@ describe("Agent & AgentRunner with Scoping and Skill Injection", () => {
       metadata: {},
     });
 
-    const planner = new Planner(new StaticPlanGenerator(), registry);
+    const planner = new Planner(new StaticPlanGenerator());
     const engine = new ExecutionEngine(
       new CapabilityDispatcher(
         registry,
@@ -131,7 +132,7 @@ describe("Agent & AgentRunner with Scoping and Skill Injection", () => {
     };
     registry.register(customSkill);
 
-    const planner = new Planner(new StaticPlanGenerator(), registry);
+    const planner = new Planner(new StaticPlanGenerator());
     const engine = new ExecutionEngine(
       new CapabilityDispatcher(
         registry,
@@ -186,9 +187,9 @@ describe("Agent & AgentRunner with Scoping and Skill Injection", () => {
       name: "Helper Agent",
       description: "Assists with specialized tasks",
       type: "agent",
-    });
+    } as AgentCapability);
 
-    const planner = new Planner(new StaticPlanGenerator(), registry);
+    const planner = new Planner(new StaticPlanGenerator());
     const engine = new ExecutionEngine(
       new CapabilityDispatcher(
         registry,
@@ -248,7 +249,7 @@ describe("Agent & AgentRunner with Scoping and Skill Injection", () => {
     const registry = new CapabilityRegistry();
     registry.register(new TestTool());
 
-    const planner = new Planner(new StaticPlanGenerator(), registry);
+    const planner = new Planner(new StaticPlanGenerator());
     const toolExecutor = new ToolExecutor();
     const toolCapabilityExecutor = new ToolCapabilityExecutor(registry, toolExecutor);
     const subAgentExecutor = new SubAgentExecutor(new AgentRegistry());
@@ -293,7 +294,7 @@ describe("Agent & AgentRunner with Scoping and Skill Injection", () => {
   it("delegates to sub-agent through agent capability", async () => {
     const capabilityRegistry = new CapabilityRegistry();
     const agentRegistry = new AgentRegistry();
-    const planner = new Planner(new StaticPlanGenerator(), capabilityRegistry);
+    const planner = new Planner(new StaticPlanGenerator());
     const toolExecutor = new ToolExecutor();
     const toolCapabilityExecutor = new ToolCapabilityExecutor(capabilityRegistry, toolExecutor);
     const subAgentExecutor = new SubAgentExecutor(agentRegistry);

@@ -75,6 +75,7 @@ export class AgentCapabilityLoader implements CapabilityLoaderInterface {
         description: config.description ?? `Agent ${config.name}`,
         type: "agent",
         agentId: rawAgentId,
+        outputSchema: config.outputSchema,
       };
     });
 

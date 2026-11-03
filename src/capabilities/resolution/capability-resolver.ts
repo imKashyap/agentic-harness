@@ -126,6 +126,59 @@ export class CapabilityResolver {
     )}`;
   }
 
+  formatOutputSchema(schema?: Record<string, unknown>): string {
+    if (!schema || typeof schema !== "object") {
+      return "";
+    }
+
+    // Top-level primitive definition
+    if (typeof schema.type === "string" && schema.type !== "object") {
+      const desc = schema.description ? `: ${schema.description}` : "";
+      return `\nReturns:\n  - (type: ${schema.type})${desc}`;
+    }
+
+    const lines: string[] = [];
+
+    const walk = (node: Record<string, unknown>, prefix = ""): void => {
+      // JSON Schema style with properties
+      if (node.properties && typeof node.properties === "object") {
+        for (const [propName, propVal] of Object.entries(node.properties as Record<string, unknown>)) {
+          const currentPath = prefix ? `${prefix}.${propName}` : propName;
+          if (propVal && typeof propVal === "object") {
+            const p = propVal as Record<string, unknown>;
+            if (p.type === "object" && p.properties) {
+              walk(p, currentPath);
+            } else {
+              const type = p.type ? String(p.type) : "any";
+              const desc = p.description ? `: ${p.description}` : "";
+              lines.push(`  - \`${currentPath}\` (${type})${desc}`);
+            }
+          }
+        }
+        return;
+      }
+
+      // Simple key-value style schema
+      for (const [key, val] of Object.entries(node)) {
+        const currentPath = prefix ? `${prefix}.${key}` : key;
+        if (val && typeof val === "object" && !Array.isArray(val)) {
+          const innerObj = val as Record<string, unknown>;
+          if (innerObj.type && innerObj.type !== "object") {
+            const desc = innerObj.description ? `: ${innerObj.description}` : "";
+            lines.push(`  - \`${currentPath}\` (${String(innerObj.type)})${desc}`);
+          } else {
+            walk(innerObj, currentPath);
+          }
+        } else {
+          lines.push(`  - \`${currentPath}\` (${String(val)})`);
+        }
+      }
+    };
+
+    walk(schema);
+    return lines.length > 0 ? `\nReturns:\n${lines.join("\n")}` : "";
+  }
+
   formatToolsPrompt(tools: Tool[]): string {
     if (tools.length === 0) {
       return "";
@@ -155,7 +208,8 @@ export class CapabilityResolver {
           paramDoc = `\nParameters:\n${formattedProps}`;
         }
       }
-      return `### Tool: ${tool.name} (\`${tool.id}\`)\n${tool.description}${paramDoc}`;
+      const returnsDoc = this.formatOutputSchema(tool.outputSchema);
+      return `### Tool: ${tool.name} (\`${tool.id}\`)\n${tool.description}${paramDoc}${returnsDoc}`;
     });
 
     return `\n\n## Available Tools\nYou have access to the following tools. Use these tools whenever needed to perform operations or retrieve live information rather than generating answers on your own:\n\n${sections.join(
@@ -169,7 +223,10 @@ export class CapabilityResolver {
     }
 
     const sections = agents.map((agent) => {
-      return `### Sub-Agent: ${agent.name} (\`${agent.id}\`)\n${agent.description.trim()}\nParameters:\n  - \`task\` (string, required): The task or question to delegate to this sub-agent.`;
+      const returnsDoc = agent.outputSchema
+        ? this.formatOutputSchema(agent.outputSchema)
+        : "\nReturns:\n  - `response` (string): Detailed answer or task resolution from this sub-agent.";
+      return `### Sub-Agent: ${agent.name} (\`${agent.id}\`)\n${agent.description.trim()}\nParameters:\n  - \`task\` (string, required): The task or question to delegate to this sub-agent.${returnsDoc}`;
     });
 
     return `\n\n## Available Sub-Agents\nYou have access to the following specialized sub-agents. Delegate tasks to them whenever their specialized capabilities or domain expertise are required rather than answering on your own:\n\n${sections.join(

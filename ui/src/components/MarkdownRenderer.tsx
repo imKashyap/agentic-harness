@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { LazySyntaxHighlighter } from './LazySyntaxHighlighter';
 import { Check, Copy } from 'lucide-react';
 
 interface CodeBlockProps {
@@ -44,9 +43,8 @@ const CodeBlock = ({ language, value }: CodeBlockProps) => {
         </button>
       </div>
       <div className='max-h-96 overflow-auto p-2.5'>
-        <SyntaxHighlighter
+        <LazySyntaxHighlighter
           language={language || 'text'}
-          style={vscDarkPlus}
           customStyle={{
             background: 'transparent',
             margin: 0,
@@ -56,7 +54,7 @@ const CodeBlock = ({ language, value }: CodeBlockProps) => {
           }}
         >
           {value}
-        </SyntaxHighlighter>
+        </LazySyntaxHighlighter>
       </div>
     </div>
   );

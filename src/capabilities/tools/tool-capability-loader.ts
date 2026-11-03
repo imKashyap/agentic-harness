@@ -12,6 +12,7 @@ export interface ToolMetadata {
   name: string;
   description: string;
   inputSchema?: Record<string, unknown>;
+  outputSchema?: Record<string, unknown>;
   requiresApproval?: boolean;
   progressMessage?: string;
   timeoutMs?: number;
@@ -101,6 +102,7 @@ export class ToolCapabilityLoader {
         description: metadata.description ?? "",
         type: "tool",
         inputSchema: metadata.inputSchema ?? { type: "object", properties: {} },
+        outputSchema: metadata.outputSchema,
         requiresApproval: metadata.requiresApproval,
         progressMessage: metadata.progressMessage,
         timeoutMs: metadata.timeoutMs,

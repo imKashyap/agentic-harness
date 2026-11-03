@@ -17,9 +17,7 @@ import { AgentConfigLoader } from "../core/agent/agent-config-loader.js";
 import { AgentFactory } from "../core/agent/agent-factory.js";
 import { AgentRegistry } from "../core/agent/agent-registry.js";
 import { HarnessOptions } from "../core/harness.js";
-import { AdaptivePlanGenerator } from "../core/orchestration/adaptive-plan-generator.js";
 import { ExecutionEngine } from "../core/orchestration/execution-engine.js";
-import { LLMPlanGenerator } from "../core/orchestration/llm-plan-generator.js";
 import { Orchestrator } from "../core/orchestration/orchestrator.js";
 import { PlanValidator } from "../core/orchestration/plan-validator.js";
 import { Planner } from "../core/orchestration/planner.js";
@@ -46,7 +44,6 @@ import { ModelConfigResolver } from "../llm/configuration/model-config-resolver.
 import { ModelRegistry } from "../llm/configuration/model-registry.js";
 import { PostgresConfigStore } from "../llm/configuration/postgres-config-store.js";
 import { ProviderRegistry } from "../llm/configuration/provider-registry.js";
-import { LLMFactory } from "../llm/llm-factory.js";
 import { ModelCatalog } from "../llm/model-catalog.js";
 import { ModelRouter } from "../llm/model-router.js";
 import { ContextCompactor } from "../memory/session/context-compactor.js";
@@ -213,19 +210,7 @@ export function createHarnessContainer(options: HarnessOptions = {}): Container 
   if (options.planGenerator) {
     container.bind(TYPES.PlanGenerator).toConstantValue(options.planGenerator);
   } else {
-    container
-      .bind(TYPES.PlanGenerator)
-      .toDynamicValue(() => {
-        const capabilityRegistry = container.get<CapabilityRegistry>(TYPES.CapabilityRegistry);
-        const modelCatalog = container.get<ModelCatalog>(TYPES.ModelCatalog);
-        const staticGen = new StaticPlanGenerator();
-        const llmGen = new LLMPlanGenerator(
-          LLMFactory.create(modelCatalog.getDefault("planner")),
-          capabilityRegistry,
-        );
-        return new AdaptivePlanGenerator(staticGen, llmGen);
-      })
-      .inSingletonScope();
+    container.bind(TYPES.PlanGenerator).to(StaticPlanGenerator).inSingletonScope();
   }
 
   container.bind(TYPES.Planner).to(Planner).inSingletonScope();

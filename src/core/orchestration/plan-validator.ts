@@ -10,6 +10,13 @@ import {
   PlanValidationError,
 } from "../../errors/orchestration-errors.js";
 import { createLogger } from "../../utils/logger.js";
+import {
+  canonicalizeReferences,
+  extractRefs,
+  isTaskCondition,
+  refTaskId,
+  resolveTaskAlias,
+} from "./argument-resolver.js";
 import { DependencyGraph } from "./dependency-graph.js";
 import { ExecutionPlan } from "./execution-plan.js";
 
@@ -29,6 +36,7 @@ export class PlanValidator {
     this.validateDuplicateTaskIds(plan);
     this.validateDependencies(plan);
     this.validateCycles(plan);
+    this.validateDeferredReferences(plan);
     this.validateCapabilities(plan);
 
     logger.info(`Execution plan [${plan.id}] validated successfully`);
@@ -66,6 +74,63 @@ export class PlanValidator {
     if (graph.hasCycle()) {
       logger.error("Execution plan contains a dependency cycle");
       throw new DependencyCycleError("plan_root");
+    }
+  }
+
+  /**
+   * Validates deferred references ("$<toolCallId>.<path>") and "_condition" objects in
+   * task inputs: every referenced task must exist in the plan and be declared in the
+   * referencing task's dependsOn, and conditions must be well-formed.
+   */
+  private validateDeferredReferences(plan: ExecutionPlan): void {
+    const taskIds = new Set(plan.tasks.map((task) => task.id));
+    const taskSummaries = plan.tasks.map((t) => ({ id: t.id, name: t.capability }));
+
+    for (let taskIndex = 0; taskIndex < plan.tasks.length; taskIndex++) {
+      const task = plan.tasks[taskIndex]!;
+      for (const ref of extractRefs(task.input)) {
+        let referencedId = refTaskId(ref);
+
+        if (!taskIds.has(referencedId)) {
+          const resolved = resolveTaskAlias(referencedId, taskIndex, taskSummaries);
+          if (taskIds.has(resolved)) {
+            referencedId = resolved;
+          }
+        }
+
+        if (!taskIds.has(referencedId)) {
+          logger.error(
+            `Task ${task.id} references unknown task '${referencedId}' in deferred ref '${ref}'`,
+          );
+          throw new PlanValidationError(
+            `Task '${task.id}' references unknown task '${referencedId}' in deferred ref '${ref}'`,
+            { taskId: task.id, ref, referencedId },
+          );
+        }
+
+        if (!(task.dependsOn ?? []).includes(referencedId)) {
+          logger.error(
+            `Task ${task.id} references task '${referencedId}' via '${ref}' but does not declare it in dependsOn`,
+          );
+          throw new PlanValidationError(
+            `Task '${task.id}' references task '${referencedId}' via '${ref}' but does not declare it in dependsOn`,
+            { taskId: task.id, ref, referencedId },
+          );
+        }
+      }
+
+      const rawInput = task.input as Record<string, unknown> | null;
+      if (
+        rawInput !== null &&
+        typeof rawInput === "object" &&
+        "_condition" in rawInput &&
+        !isTaskCondition(rawInput["_condition"])
+      ) {
+        logger.error(`Task ${task.id} has a malformed '_condition' object`);
+        throw new PlanValidationError(`Task '${task.id}' has a malformed '_condition' object`, {
+          taskId: task.id,
+        });
+      }
     }
   }
 

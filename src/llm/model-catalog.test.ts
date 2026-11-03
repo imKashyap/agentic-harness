@@ -25,10 +25,9 @@ describe("ModelCatalog", () => {
     });
   });
 
-  it("resolves the planner default and supports each configured provider", () => {
+  it("supports each configured provider", () => {
     const catalog = new ModelCatalog();
 
-    assert.strictEqual(catalog.getDefault("planner").model, "gemma-4-31b-it");
     assert.ok(
       LLMFactory.create(
         catalog.resolve({ provider: "openrouter", model: "google/gemini-2.0-flash-001" }),

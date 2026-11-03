@@ -104,14 +104,6 @@ export class ModelCatalog {
       }
     }
 
-    // Ensure built-in defaults exist
-    if (!this.defaults["planner"]) {
-      this.defaults["planner"] = {
-        provider: "openrouter",
-        model: "gemma-4-31b-it",
-      };
-    }
-
     // Ensure standard providers and models exist in catalog map for resolve()
     this.populateProvidersFromRegistry();
 

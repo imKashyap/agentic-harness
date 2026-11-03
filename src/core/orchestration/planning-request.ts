@@ -10,5 +10,4 @@ export interface CapabilityCallInfo {
 export interface PlanningRequest {
   toolCalls: ToolCall[];
   context?: ExecutionContext;
-  capabilities?: Capability[];
 }

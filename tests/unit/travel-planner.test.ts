@@ -146,15 +146,46 @@ describe("Travel Planner Ecosystem Integration", () => {
 
     // Weather
     const weatherTool = harness.capabilityRegistry.getTool("tool.get_weather");
-    const weatherResult = await weatherTool.execute(
-      { location: "Kyoto", seasonOrMonth: "autumn" },
-      context,
-    );
-    assert.equal(weatherResult.success, true);
-    assert.ok(
-      (weatherResult.output as { temperature: { highCelsius: number } }).temperature.highCelsius >
-        0,
-    );
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (input) => {
+      if (String(input).startsWith("https://geocoding-api.open-meteo.com/")) {
+        return Response.json({
+          results: [
+            {
+              name: "Kyoto",
+              country: "Japan",
+              latitude: 35.01,
+              longitude: 135.77,
+              timezone: "Asia/Tokyo",
+            },
+          ],
+        });
+      }
+
+      return Response.json({
+        current: {
+          temperature_2m: 18,
+          relative_humidity_2m: 62,
+          weather_code: 2,
+        },
+        daily: {
+          temperature_2m_max: [20, 22],
+          temperature_2m_min: [12, 14],
+          precipitation_probability_max: [10, 30],
+          weather_code: [2, 1],
+        },
+      });
+    };
+    try {
+      const weatherResult = await weatherTool.execute({ location: "Kyoto" }, context);
+      assert.equal(weatherResult.success, true);
+      assert.ok(
+        (weatherResult.output as { temperature: { highCelsius: number } }).temperature.highCelsius >
+          0,
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
 
     // Budget
     const budgetTool = harness.capabilityRegistry.getTool("tool.calculate_trip_budget");

@@ -29,6 +29,26 @@ export class SearchMemoryTool implements Tool {
     required: ["query"],
   };
 
+  public readonly outputSchema = {
+    type: "object",
+    properties: {
+      query: { type: "string", description: "The original search query" },
+      matchCount: { type: "number", description: "Number of matched memory records" },
+      memories: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            content: { type: "string", description: "Recalled text content" },
+            score: { type: "number", description: "Relevance score" },
+            tags: { type: "array", items: { type: "string" } },
+          },
+        },
+        description: "List of recalled memory facts",
+      },
+    },
+  };
+
   constructor(
     @inject(TYPES.MemoryManager)
     private readonly memoryManager: MemoryManager,

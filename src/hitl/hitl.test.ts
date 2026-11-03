@@ -2,6 +2,8 @@ import "reflect-metadata";
 
 import assert from "node:assert";
 import { promises as fs } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { describe, it } from "node:test";
 
 import { createApp } from "../../apps/api/server.js";
@@ -104,7 +106,9 @@ describe("MockCheckpointStore", () => {
   });
 
   it("persists checkpoints in FileCheckpointStore", async () => {
-    const testDir = "./scratch/test-checkpoints";
+    // Unique temp dir per run: parallel test files sharing a fixed "./scratch" path
+    // would wipe each other's data mid-run.
+    const testDir = await fs.mkdtemp(path.join(tmpdir(), "test-checkpoints-"));
     const store = new FileCheckpointStore(testDir);
 
     const cp = {
@@ -171,7 +175,7 @@ describe("Agent & Orchestrator with HITL Approval Gate", () => {
     const store = new MockCheckpointStore();
     const approvalManager = new ApprovalManager(store);
 
-    const planner = new Planner(new StaticPlanGenerator(), registry);
+    const planner = new Planner(new StaticPlanGenerator());
     const engine = new ExecutionEngine(
       new CapabilityDispatcher(
         registry,
@@ -247,7 +251,7 @@ describe("Agent & Orchestrator with HITL Approval Gate", () => {
     const store = new MockCheckpointStore();
     const approvalManager = new ApprovalManager(store);
 
-    const planner = new Planner(new StaticPlanGenerator(), registry);
+    const planner = new Planner(new StaticPlanGenerator());
     const engine = new ExecutionEngine(
       new CapabilityDispatcher(
         registry,

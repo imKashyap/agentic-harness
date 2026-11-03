@@ -2,7 +2,9 @@ import "reflect-metadata";
 
 import assert from "node:assert";
 import { promises as fs } from "node:fs";
-import { describe, it } from "node:test";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { after, before, describe, it } from "node:test";
 
 import { MockSessionStore, withMockPersistence } from "../../tests/support/mock-stores.js";
 import { TestTool } from "../../tests/support/test-tool.js";
@@ -67,7 +69,17 @@ describe("MockSessionStore", () => {
 });
 
 describe("FileSessionStore", () => {
-  const testDir = "./scratch/test-sessions";
+  let testDir = "";
+
+  before(async () => {
+    // Unique temp dir per run: parallel test files sharing a fixed "./scratch" path
+    // would wipe each other's data mid-run.
+    testDir = await fs.mkdtemp(path.join(tmpdir(), "test-sessions-"));
+  });
+
+  after(async () => {
+    await fs.rm(testDir, { recursive: true, force: true });
+  });
 
   it("persists sessions to disk and reads them back", async () => {
     const store = new FileSessionStore(testDir);
@@ -96,9 +108,6 @@ describe("FileSessionStore", () => {
 
     await store.delete("disk-sess-1");
     assert.strictEqual(await store.get("disk-sess-1"), null);
-
-    // Clean up test directory
-    await fs.rm(testDir, { recursive: true, force: true });
   });
 });
 

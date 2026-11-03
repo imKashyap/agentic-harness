@@ -1,12 +1,23 @@
+import { z } from "zod";
+
 import type { ToolContext, ToolResult } from "../../src/capabilities/tools/tool.js";
 
-interface CalculateTripBudgetInput {
-  destination: string;
-  durationDays: number;
-  travelersCount?: number;
-  travelStyle: "budget" | "moderate" | "luxury";
-  includeFlights?: boolean;
-}
+export const CalculateTripBudgetInputSchema = z.object({
+  destination: z
+    .string({ message: "Parameter 'destination' is required for calculate_trip_budget" })
+    .trim()
+    .min(1, "Parameter 'destination' is required for calculate_trip_budget"),
+  durationDays: z
+    .number({ message: "Parameter 'durationDays' must be a positive number" })
+    .positive("Parameter 'durationDays' must be a positive number"),
+  travelStyle: z.enum(["budget", "moderate", "luxury"], {
+    message: "Parameter 'travelStyle' must be one of: 'budget', 'moderate', 'luxury'",
+  }),
+  travelersCount: z.coerce.number().int().positive().optional().default(1),
+  includeFlights: z.coerce.boolean().optional().default(false),
+});
+
+export type CalculateTripBudgetInput = z.infer<typeof CalculateTripBudgetInputSchema>;
 
 interface CostTiers {
   lodgingPerNight: number;
@@ -41,44 +52,26 @@ const BASELINE_TIERS: Record<"budget" | "moderate" | "luxury", CostTiers> = {
 };
 
 export async function execute(input: unknown, _context: ToolContext): Promise<ToolResult> {
-  const req = (
-    typeof input === "object" && input !== null ? input : {}
-  ) as CalculateTripBudgetInput;
-
-  const destination = typeof req.destination === "string" ? req.destination.trim() : "";
-  if (!destination) {
+  const parsed = CalculateTripBudgetInputSchema.safeParse(input);
+  if (!parsed.success) {
+    const errorMsg =
+      parsed.error.issues[0]?.message ?? "Invalid input for calculate_trip_budget";
     return {
       success: false,
       output: null,
-      error: "Parameter 'destination' is required for calculate_trip_budget",
+      error: errorMsg,
     };
   }
 
-  const durationDays =
-    typeof req.durationDays === "number" ? Math.max(1, Math.round(req.durationDays)) : 0;
-  if (!durationDays) {
-    return {
-      success: false,
-      output: null,
-      error: "Parameter 'durationDays' must be a positive number",
-    };
-  }
+  const {
+    destination,
+    durationDays: rawDuration,
+    travelStyle,
+    travelersCount,
+    includeFlights,
+  } = parsed.data;
 
-  const travelStyle = req.travelStyle;
-  if (!travelStyle || !["budget", "moderate", "luxury"].includes(travelStyle)) {
-    return {
-      success: false,
-      output: null,
-      error: "Parameter 'travelStyle' must be one of: 'budget', 'moderate', 'luxury'",
-    };
-  }
-
-  const travelersCount =
-    typeof req.travelersCount === "number" && req.travelersCount > 0
-      ? Math.round(req.travelersCount)
-      : 1;
-
-  const includeFlights = Boolean(req.includeFlights);
+  const durationDays = Math.max(1, Math.round(rawDuration));
 
   const tiers = BASELINE_TIERS[travelStyle];
 

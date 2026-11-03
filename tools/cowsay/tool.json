@@ -8,10 +8,18 @@
     "properties": {
       "message": {
         "type": "string",
-        "description": "The text for the cow to say."
+        "description": "The text for the cow to say (numbers and messages are automatically converted to text)."
+      },
+      "text": {
+        "type": "string",
+        "description": "Alternative alias for message."
       }
     },
     "required": ["message"]
+  },
+  "outputSchema": {
+    "type": "string",
+    "description": "ASCII art illustration of a cow saying the message"
   },
   "progressMessage": "Making the cow say something..."
 }

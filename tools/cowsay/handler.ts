@@ -1,8 +1,6 @@
-import type { ToolContext, ToolResult } from "../../src/capabilities/tools/tool.js";
+import { z } from "zod";
 
-interface CowsayInput {
-  message: string;
-}
+import type { ToolContext, ToolResult } from "../../src/capabilities/tools/tool.js";
 
 const MAX_LINE_WIDTH = 40;
 const COW = [
@@ -42,9 +40,77 @@ function wrapMessage(message: string): string[] {
   return lines;
 }
 
+const MessageCandidateSchema = z.union([
+  z.string(),
+  z.number().transform((n) => String(n)),
+  z.boolean().transform((b) => String(b)),
+  z.record(z.string(), z.unknown()).transform((obj) => {
+    const inner =
+      obj.conditionSummary ??
+      obj.currentCelsius ??
+      obj.temperatureCelsius ??
+      obj.celsius ??
+      obj.summary ??
+      obj.value ??
+      obj.message ??
+      obj.text;
+    if (inner !== undefined && inner !== null) return String(inner);
+    return JSON.stringify(obj);
+  }),
+]);
+
+export const CowsayInputSchema = z.preprocess((val) => {
+  if (val === null || val === undefined) return "";
+  if (typeof val === "string") return val.trim();
+  if (typeof val === "number" || typeof val === "boolean") return String(val);
+  if (typeof val === "object") {
+    const obj = val as Record<string, unknown>;
+    const candidate =
+      obj.message ??
+      obj.text ??
+      obj.content ??
+      obj.input ??
+      obj.msg ??
+      obj.value ??
+      obj.data;
+
+    if (candidate !== undefined && candidate !== null) {
+      const res = MessageCandidateSchema.safeParse(candidate);
+      if (res.success && res.data.trim().length > 0) {
+        return res.data.trim();
+      }
+    }
+
+    const entries = Object.entries(obj);
+    if (entries.length === 1 && entries[0] && entries[0][1] !== undefined && entries[0][1] !== null) {
+      const res = MessageCandidateSchema.safeParse(entries[0][1]);
+      if (res.success && res.data.trim().length > 0) {
+        return res.data.trim();
+      }
+    }
+
+    const direct =
+      obj.conditionSummary ?? obj.currentCelsius ?? obj.temperatureCelsius ?? obj.celsius;
+    if (direct !== undefined && direct !== null) {
+      return String(direct).trim();
+    }
+  }
+  return "";
+}, z.string().trim().min(1, "Parameter 'message' is required for cowsay"));
+
 export async function execute(input: unknown, _context: ToolContext): Promise<ToolResult> {
-  const req = typeof input === "object" && input !== null ? (input as Partial<CowsayInput>) : {};
-  const message = typeof req.message === "string" ? req.message.trim() : "";
+  const parsed = CowsayInputSchema.safeParse(input);
+  if (!parsed.success) {
+    const errorMessage =
+      parsed.error.issues[0]?.message ?? "Parameter 'message' is required for cowsay";
+    return {
+      success: false,
+      output: null,
+      error: errorMessage,
+    };
+  }
+
+  const message = parsed.data;
 
   if (!message) {
     return {

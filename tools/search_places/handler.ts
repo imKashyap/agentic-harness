@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import type { ToolContext, ToolResult } from "../../src/capabilities/tools/tool.js";
 
 interface PlaceItem {
@@ -11,12 +13,17 @@ interface PlaceItem {
   tags: string[];
 }
 
-interface SearchPlacesInput {
-  location: string;
-  category?: "attraction" | "restaurant" | "hotel" | "all";
-  query?: string;
-  limit?: number;
-}
+export const SearchPlacesInputSchema = z.object({
+  location: z
+    .string({ message: "Parameter 'location' is required for search_places" })
+    .trim()
+    .min(1, "Parameter 'location' is required for search_places"),
+  category: z.enum(["attraction", "restaurant", "hotel", "all"]).optional(),
+  query: z.string().optional().default(""),
+  limit: z.coerce.number().int().positive().optional().default(5),
+});
+
+export type SearchPlacesInput = z.infer<typeof SearchPlacesInputSchema>;
 
 const CURATED_PLACES: Record<string, PlaceItem[]> = {
   tokyo: [
@@ -204,20 +211,19 @@ const CURATED_PLACES: Record<string, PlaceItem[]> = {
 };
 
 export async function execute(input: unknown, _context: ToolContext): Promise<ToolResult> {
-  const req = (typeof input === "object" && input !== null ? input : {}) as SearchPlacesInput;
-
-  const location = typeof req.location === "string" ? req.location.trim() : "";
-  if (!location) {
+  const parsed = SearchPlacesInputSchema.safeParse(input);
+  if (!parsed.success) {
     return {
       success: false,
       output: null,
-      error: "Parameter 'location' is required for search_places",
+      error: parsed.error.issues[0]?.message ?? "Parameter 'location' is required for search_places",
     };
   }
 
-  const categoryFilter = req.category && req.category !== "all" ? req.category : undefined;
-  const queryFilter = typeof req.query === "string" ? req.query.trim().toLowerCase() : "";
-  const limit = typeof req.limit === "number" && req.limit > 0 ? Math.min(req.limit, 20) : 5;
+  const { location, category, query, limit: rawLimit } = parsed.data;
+  const categoryFilter = category && category !== "all" ? category : undefined;
+  const queryFilter = query.trim().toLowerCase();
+  const limit = Math.min(rawLimit, 20);
 
   const normalizedLoc = location.toLowerCase();
   let candidatePlaces: PlaceItem[] = [];
@@ -300,7 +306,7 @@ export async function execute(input: unknown, _context: ToolContext): Promise<To
       location,
       totalFound: filtered.length,
       limit,
-      category: req.category ?? "all",
+      category: category ?? "all",
       places: results,
     },
   };

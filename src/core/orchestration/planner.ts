@@ -1,6 +1,5 @@
-import { inject, injectable, optional } from "inversify";
+import { inject, injectable } from "inversify";
 
-import { CapabilityRegistry } from "../../capabilities/capability-registry.js";
 import { TYPES } from "../../di/types.js";
 import { createLogger } from "../../utils/logger.js";
 import { Task } from "../execution/task.js";
@@ -12,22 +11,12 @@ const logger = createLogger("Planner");
 
 @injectable()
 export class Planner {
-  constructor(
-    @inject(TYPES.PlanGenerator) private readonly planGenerator: PlanGenerator,
-    @optional()
-    @inject(TYPES.CapabilityRegistry)
-    private readonly capabilityRegistry?: CapabilityRegistry,
-  ) {}
+  constructor(@inject(TYPES.PlanGenerator) private readonly planGenerator: PlanGenerator) {}
 
   async createPlan(request: PlanningRequest): Promise<ExecutionPlan> {
     logger.info(`Creating plan for ${request.toolCalls.length} tool call(s)`);
 
-    const enrichedRequest: PlanningRequest = {
-      ...request,
-      capabilities: request.capabilities ?? this.capabilityRegistry?.getAll(),
-    };
-
-    const steps = await this.planGenerator.generate(enrichedRequest);
+    const steps = await this.planGenerator.generate(request);
 
     const tasks: Task[] = steps.map((step) => {
       logger.debug(

@@ -59,26 +59,79 @@ describe("Travel Tools Handlers", () => {
   });
 
   describe("get_weather", () => {
-    it("returns climate/weather data for Kyoto (via Open-Meteo or seasonal baseline)", async () => {
-      const result = await executeGetWeather(
-        { location: "Kyoto", seasonOrMonth: "November" },
-        mockContext,
-      );
-      assert.equal(result.success, true);
+    it("returns live weather data from Open-Meteo", async () => {
+      const originalFetch = globalThis.fetch;
+      const requestedUrls: string[] = [];
+      globalThis.fetch = async (input) => {
+        const url = String(input);
+        requestedUrls.push(url);
 
-      const output = result.output as {
-        source?: string;
-        detectedSeason?: string;
-        temperature: { highCelsius: number; lowCelsius: number; highFahrenheit: number };
-        packingRecommendations: string[];
+        if (url.startsWith("https://geocoding-api.open-meteo.com/")) {
+          return Response.json({
+            results: [
+              {
+                name: "Kyoto",
+                country: "Japan",
+                latitude: 35.01,
+                longitude: 135.77,
+                timezone: "Asia/Tokyo",
+              },
+            ],
+          });
+        }
+
+        return Response.json({
+          current: {
+            temperature_2m: 18,
+            relative_humidity_2m: 62,
+            weather_code: 2,
+          },
+          daily: {
+            temperature_2m_max: [20, 22],
+            temperature_2m_min: [12, 14],
+            precipitation_probability_max: [10, 30],
+            weather_code: [2, 1],
+          },
+        });
       };
-      assert.ok(
-        output.source?.includes("open-meteo") || output.detectedSeason === "autumn",
-        "Should return data from Open-Meteo or seasonal baseline",
-      );
-      assert.ok(typeof output.temperature.highCelsius === "number");
-      assert.ok(output.temperature.highFahrenheit > 30);
-      assert.ok(output.packingRecommendations.length > 0);
+
+      try {
+        const result = await executeGetWeather({ location: "Kyoto" }, mockContext);
+        assert.equal(result.success, true);
+
+        const output = result.output as {
+          source: string;
+          current: { temperatureCelsius: number; condition: string };
+          temperature: { highCelsius: number; lowCelsius: number; highFahrenheit: number };
+          packingRecommendations: string[];
+        };
+        assert.equal(output.source, "open-meteo.com (live forecast)");
+        assert.equal(output.current.temperatureCelsius, 18);
+        assert.equal(output.current.condition, "Partly cloudy");
+        assert.equal(output.temperature.highCelsius, 22);
+        assert.equal(output.temperature.lowCelsius, 12);
+        assert.equal(output.temperature.highFahrenheit, 72);
+        assert.ok(output.packingRecommendations.length > 0);
+        assert.equal(requestedUrls.length, 2);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it("returns an error when Open-Meteo is unavailable instead of using estimates", async () => {
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = async () => {
+        throw new Error("Network unavailable");
+      };
+
+      try {
+        const result = await executeGetWeather({ location: "Kyoto" }, mockContext);
+        assert.equal(result.success, false);
+        assert.equal(result.output, null);
+        assert.match(result.error ?? "", /Unable to retrieve live weather/);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
     });
 
     it("returns an error if location is missing", async () => {

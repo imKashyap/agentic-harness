@@ -52,6 +52,35 @@ describe("cowsay tool", () => {
     );
   });
 
+  it("handles numeric input values such as temperatures", async () => {
+    const resultNum = await executeCowsay({ message: 28 }, mockContext);
+    assert.equal(resultNum.success, true);
+    assert.ok(String(resultNum.output).includes("< 28 >"));
+
+    const resultZero = await executeCowsay({ message: 0 }, mockContext);
+    assert.equal(resultZero.success, true);
+    assert.ok(String(resultZero.output).includes("< 0 >"));
+  });
+
+  it("handles alternative property aliases like text, content, or raw strings", async () => {
+    const textResult = await executeCowsay({ text: "Hello text" }, mockContext);
+    assert.equal(textResult.success, true);
+    assert.ok(String(textResult.output).includes("< Hello text >"));
+
+    const rawStringResult = await executeCowsay("Raw cow message", mockContext);
+    assert.equal(rawStringResult.success, true);
+    assert.ok(String(rawStringResult.output).includes("< Raw cow message >"));
+  });
+
+  it("extracts temperature/celsius or summary from object inputs", async () => {
+    const objResult = await executeCowsay(
+      { message: { currentCelsius: 28 } },
+      mockContext,
+    );
+    assert.equal(objResult.success, true);
+    assert.ok(String(objResult.output).includes("< 28 >"));
+  });
+
   it("returns an error when the message is missing or blank", async () => {
     const missing = await executeCowsay({}, mockContext);
     const blank = await executeCowsay({ message: "  " }, mockContext);

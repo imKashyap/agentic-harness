@@ -33,6 +33,15 @@ export class RememberFactTool implements Tool {
     required: ["fact"],
   };
 
+  public readonly outputSchema = {
+    type: "object",
+    properties: {
+      message: { type: "string", description: "Confirmation message" },
+      id: { type: "string", description: "Unique memory ID" },
+      fact: { type: "string", description: "The remembered fact content" },
+    },
+  };
+
   constructor(
     @inject(TYPES.MemoryManager)
     private readonly memoryManager: MemoryManager,
